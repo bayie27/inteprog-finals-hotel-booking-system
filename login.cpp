@@ -1,27 +1,21 @@
 #include <iostream>
-#include <map>
 #include <string>
 #include <regex>
-#include <memory>
 #include <fstream>
 #include <vector>
+#include <sstream>
 using namespace std;
 
 class InputValidator
 {
 public:
-    static bool isValidInput(const string &input, const string &pattern)
+    static bool isValidInput(const string &input, const regex &compiledPattern)
     {
-        static map<string, regex> regexCache;
         if (input.empty())
         {
             return false;
         }
-        if (regexCache.find(pattern) == regexCache.end())
-        {
-            regexCache[pattern] = regex(pattern);
-        }
-        return regex_match(input, regexCache[pattern]);
+        return regex_match(input, compiledPattern);
     }
     static string getValidatedInput(const string &prompt, const string &pattern, const string &errorMessage)
     {
@@ -30,7 +24,8 @@ public:
         {
             cout << prompt;
             getline(cin, input);
-            if (isValidInput(input, pattern))
+            regex compiledPattern(pattern);
+            if (isValidInput(input, compiledPattern))
             {
                 return input;
             }
@@ -45,31 +40,68 @@ public:
 class Guest
 {
 private:
-    int guestId;
-    string firstName, lastName, fullName, email, password, contactNumber;
+    string email, password, firstName, lastName, fullName, contactNumber;
 
 public:
-    Guest(int _guestId, string _firstName, string _lastName, string _fullName, string _email, string _password, string _contactNumber) : guestId(_guestId), firstName(_firstName), lastName(_lastName), fullName(_fullName), email(_email), password(_password), contactNumber(_contactNumber) {}
+    Guest() : email(""), password(""), firstName(""), lastName(""), fullName(""), contactNumber("") {}
+    Guest(string _email, string _password, string _firstName, string _lastName, string _fullName, string _contactNumber) : email(_email), password(_password), firstName(_firstName), lastName(_lastName), fullName(_fullName), contactNumber(_contactNumber) {}
 
-    int getGuestId() const { return guestId; }
+    void setEmail(const string &newEmail) { email = newEmail; }
+    void setPassword(const string &newPassword) { password = newPassword; }
+    void setFirstName(const string &newFirstName) { firstName = newFirstName; }
+    void setLastName(const string &newLastName) { lastName = newLastName; }
+    void setFullName(const string &newFullName) { fullName = newFullName; }
+    void setContactNumber(const string &newContactNumber) { contactNumber = newContactNumber; }
+
+    string getEmail() const { return email; }
+    string getPassword() const { return password; }
     string getFirstName() const { return firstName; }
     string getLastName() const { return lastName; }
     string getFullName() const { return fullName; }
-    string getEmail() const { return email; }
-    string getPassword() const { return password; }
     string getContactNumber() const { return contactNumber; }
 };
 
 class GuestManager
 {
 private:
-    map<int, shared_ptr<Guest>> guestMap;
-    map<string, int> emailMap;
-    int nextGuestId = 1;
+    Guest loggedInGuest;
 
-    const string USER_FILE = "hotel_users.txt";
+    const string USER_FILE;
     // store newly user to records of user (txt file)
-    void addGuestToFile(int guestId, const Guest &guest)
+
+    bool emailExistsInFile(const string &email)
+    {
+        fstream file;
+
+        file.open(USER_FILE, ios::in); // read
+        if (file.is_open())
+        {
+            string line;
+            while (getline(file, line))
+            {
+                string token;
+                vector<string> tokens;
+                stringstream ss(line);
+                while (getline(ss, token, '|'))
+                {
+                    tokens.push_back(token);
+                }
+                if (tokens[0] == email)
+                {
+                    file.close();
+                    return true; // email found
+                }
+            }
+        }
+        else
+        {
+            cout << "File can't be open." << endl;
+            return false;
+        }
+        return false;
+    }
+
+    void addGuestToFile(string email, const Guest &guest)
     {
         fstream file;
 
@@ -84,15 +116,10 @@ private:
                 lines.push_back(line);
             }
             file.close();
-        } // else throw (File can't be open.)
 
-        if (!lines.empty())
-        {
-            lines[0] = to_string(nextGuestId);
-        }
+        } // else throw (File can't be open.
 
-        // guestid wala pa (need to fix)
-        lines.push_back(guestId + "|" + guest.getFirstName() + "|" + guest.getLastName() + "|" + guest.getFullName() + "|" + guest.getEmail() + "|" + guest.getPassword() + "|" + guest.getContactNumber());
+        lines.push_back(guest.getEmail() + "|" + guest.getPassword() + "|" + guest.getFirstName() + "|" + guest.getLastName() + "|" + guest.getFullName() + "|" + guest.getContactNumber());
 
         file.open(USER_FILE, ios::out); // write
         if (file.is_open())
@@ -105,17 +132,60 @@ private:
         } // else throw (File can't be open.)
     }
 
+    bool findGuestByEmail(const string &email, const string &password)
+    {
+        fstream file;
+        vector<string> tokens;
+
+        file.open(USER_FILE, ios::in);
+        if (file.is_open())
+        {
+            string line;
+            while (getline(file, line))
+            {
+                tokens.clear();
+                stringstream ss(line);
+                string token;
+                while (getline(ss, token, '|'))
+                {
+                    tokens.push_back(token);
+                }
+                if (tokens.size() == 6 && tokens[0] == email && tokens[1] == password)
+                {
+                    loggedInGuest.setEmail(tokens[0]);
+                    loggedInGuest.setPassword(tokens[1]);
+                    loggedInGuest.setFirstName(tokens[2]);
+                    loggedInGuest.setLastName(tokens[3]);
+                    loggedInGuest.setFullName(tokens[4]);
+                    loggedInGuest.setContactNumber(tokens[5]);
+                    file.close();
+                    return true;
+                }
+            }
+            file.close();
+        }
+        return false; // email/password not found
+    }
+
+    void editGuestInfo(const Guest &guest)
+    {
+        /*Display the loggedInGuest info
+        Input the guest informations
+        Set the edited loggedInGuest info in runtime
+        update the loggedInGuest info in hotel_users.txt*/
+    }
+
 public:
-    GuestManager() : USER_FILE("hotel_users.txt"), nextGuestId(1) {}
+    GuestManager() : USER_FILE("hotel_users.txt") {}
 
     // need forgot password (update password)
     void signUp()
     {
-        string email = InputValidator::getValidatedInput("Enter your email: ", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "Invalid email format.");
+        string email = InputValidator::getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
         // needed to scan first txt file to search if existing user (using txt file to scan as if existing user)
-        if (emailMap.find(email) != emailMap.end())
+        if (emailExistsInFile(email))
         {
-            cout << "That email is taken. Try another.\n";
+            cout << "That email is already registered. Try another.\n";
             return;
         }
 
@@ -123,69 +193,47 @@ public:
 
         string firstName = InputValidator::getValidatedInput("Enter your first name: ", "^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$", "First name can only contain letters and spaces.");
         string lastName = InputValidator::getValidatedInput("Enter your last name: ", "^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$", "Last name can only be contain letters and spaces.");
-        string contactNumber = InputValidator::getValidatedInput("Enter your contact number: ", "^09\\d{9}$", "Contact number must be 10 digits long.");
+        string contactNumber = InputValidator::getValidatedInput("Enter your contact number: ", "^(09|\\+639)\\d{9}$", "Contact number must start with '09' or '+639' and be 11 digits long.");
         string fullName = firstName + " " + lastName;
 
         // Create the new guest object
-        auto newGuest = make_shared<Guest>(nextGuestId, firstName, lastName, fullName, email, password, contactNumber);
-
-        // Store the new guest in the maps
-        guestMap[nextGuestId] = newGuest;
-        emailMap[email] = nextGuestId;
+        Guest newGuest(email, password, firstName, lastName, fullName, contactNumber);
 
         // store newly user to records of user (txt file)
-        addGuestToFile(nextGuestId, *newGuest);
+        addGuestToFile(email, newGuest);
 
-        cout << "Account created successfully! Welcome, " << guestMap[nextGuestId]->getFullName() << "!\n";
-        nextGuestId++;
+        cout << "Account created successfully! Welcome, " << newGuest.getFullName() << "!\n";
     }
-    shared_ptr<Guest> signIn()
+
+    Guest signIn()
     {
-        string email;
-        for (;;)
+        string email = InputValidator::getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
+        string password = InputValidator::getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+        // Checks email and password
+        if (!findGuestByEmail(email, password))
         {
-            email = InputValidator::getValidatedInput("Enter your email: ", "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", "Invalid email format.");
-            if (!(emailMap.count(email)))
-            {
-                cout << "Couldn't find your email. Signup first.\n\n";
-                return nullptr;
-            }
-            break;
+            cout << "Incorrect email or password.\n";
+            return Guest();
         }
-
-        string password;
-        const auto &it = emailMap.find(email);
-        for (;;)
-        {
-            password = InputValidator::getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
-            if (guestMap[it->second]->getPassword() != password)
-            {
-                cout << "Wrong password. Try again." << endl;
-                continue;
-            }
-            cout << "Welcome, " << guestMap[it->second]->getFullName() << "!\n";
-            break;
-        }
-        return guestMap[it->second];
+        cout << "Welcome, " << loggedInGuest.getFullName() << "!\n";
+        return Guest(loggedInGuest.getEmail(), loggedInGuest.getPassword(), loggedInGuest.getFirstName(), loggedInGuest.getLastName(), loggedInGuest.getFullName(), loggedInGuest.getContactNumber());
     }
 
-    shared_ptr<Guest> signingPage()
+    Guest signingPage()
     {
         int choice;
-        shared_ptr<Guest> loggedInGuest = nullptr;
+        Guest loggedInGuest;
 
         do
         {
             cout << string(50, '-') << " Hotel Reservation System " << string(50, '-') << "\n";
-            cout << "1. Login\n2. Sign Up\n3. Exit\n";
-            int choice = stoi(InputValidator::getValidatedInput("Enter your choice: ", "^[1-3]$", "Invalid choice. Please enter [1 - 3]."));
+            cout << "1. Sign In\n2. Sign Up\n3. Exit\n";
+            int choice = stoi(InputValidator::getValidatedInput("Enter your choice [1 - 3]: ", "^[1-3]$", "Invalid choice. Please enter [1 - 3]."));
             switch (choice)
             {
             case 1:
-                cout << string(50, '-') << " Login Page " << string(50, '-') << "\n";
+                cout << string(50, '-') << " Sign In Page " << string(50, '-') << "\n";
                 loggedInGuest = signIn();
-                if (loggedInGuest)
-                    return loggedInGuest;
                 break;
             case 2:
                 cout << string(50, '-') << " Sign Up Page " << string(50, '-') << "\n";
@@ -193,11 +241,11 @@ public:
                 break;
             case 3:
                 cout << "Exiting..." << endl;
-                return nullptr;
+                return Guest("", "", "", "", "", "");
             default:
                 cout << "Invalid choice." << endl;
             }
-        } while (!loggedInGuest);
+        } while (loggedInGuest.getEmail().empty());
         return loggedInGuest;
     }
 };
@@ -205,10 +253,6 @@ public:
 int main()
 {
     GuestManager guestManager;
-    shared_ptr<Guest> loggedInGuest = guestManager.signingPage();
-    if (!loggedInGuest)
-    {
-        cout << "No user logged in. Exiting program." << endl;
-        return 0;
-    }
+    Guest loggedInGuest = guestManager.signingPage();
+    return 0;
 }
