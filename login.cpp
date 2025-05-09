@@ -5,6 +5,7 @@
 #include <memory>
 #include <fstream>
 #include <vector>
+#include <iomanip>
 using namespace std;
 
 class InputValidator
@@ -177,12 +178,12 @@ public:
         do
         {
             cout << string(50, '-') << " Hotel Reservation System " << string(50, '-') << "\n";
-            cout << "1. Login\n2. Sign Up\n3. Exit\n";
+            cout << "1. Sign In\n2. Sign Up\n3. Exit\n";
             int choice = stoi(InputValidator::getValidatedInput("Enter your choice: ", "^[1-3]$", "Invalid choice. Please enter [1 - 3]."));
             switch (choice)
             {
             case 1:
-                cout << string(50, '-') << " Login Page " << string(50, '-') << "\n";
+                cout << string(50, '-') << " Sign In Page " << string(50, '-') << "\n";
                 loggedInGuest = signIn();
                 if (loggedInGuest)
                     return loggedInGuest;
@@ -202,13 +203,185 @@ public:
     }
 };
 
+class Room
+{
+private:
+    string roomNumber, roomType, roomFeatures;
+    double roomPricePerNight;
+
+public:
+    Room(string roomNumber, string roomType, string roomFeatures, double roomPricePerNight) : roomNumber(roomNumber), roomType(roomType), roomFeatures(roomFeatures), roomPricePerNight(roomPricePerNight) {}
+
+    string getRoomNumber() const { return roomNumber; }
+    string getRoomType() const { return roomType; }
+    string getRoomFeatures() const { return roomFeatures; }
+    double getRoomPricePerNight() const { return roomPricePerNight; }
+
+    void displayRoomDetails() const
+    {
+        cout << "Room Number: " << roomNumber << endl;
+        cout << "Room Type: " << roomType << endl;
+        cout << "Room Features: " << roomFeatures << endl;
+        cout << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << endl;
+    }
+};
+
+class RoomManager{
+private:
+    vector<Room> roomsList;
+
+    void loadRooms()
+    {
+        string line;
+        fstream hotel_rooms;
+        hotel_rooms.open("hotel_rooms.txt", ios::in);
+        if (hotel_rooms.is_open())
+        {
+            while (getline(hotel_rooms, line))
+            {
+                stringstream ss(line);
+                string roomNumber, roomType, roomFeatures;
+                double roomPricePerNight;
+
+                getline(ss, roomNumber, '|');
+                getline(ss, roomType, '|');
+                getline(ss, roomFeatures, '|');
+                ss >> roomPricePerNight;
+
+                roomsList.push_back(Room(roomNumber, roomType, roomFeatures, roomPricePerNight));
+            }
+            hotel_rooms.close();
+        }
+    }
+
+    void SaveRooms()
+    {
+        fstream hotel_rooms;
+        hotel_rooms.open("hotel_rooms.txt", ios::out);
+        if (hotel_rooms.is_open())
+        {
+            for (const auto &room : roomsList)
+            {
+                hotel_rooms << room.getRoomNumber() << "|"
+                            << room.getRoomType() << "|"
+                            << room.getRoomFeatures() << "|"
+                            << fixed << setprecision(2) << room.getRoomPricePerNight() << "\n";
+            }
+            hotel_rooms.close();
+        }
+    }
+
+    vector<Room>::iterator findRoom(const string &number)
+    {
+        return find_if(roomsList.begin(), roomsList.end(),
+                       [&number](const Room &room)
+                       {
+                           return room.getRoomNumber() == number;
+                       });
+    }
+
+public:
+    RoomManager()
+    {
+        loadRooms();
+    }
+
+    ~RoomManager()
+    {
+        SaveRooms();
+    }
+
+    void addRoom()
+    {
+        string roomNumber;
+        bool roomExists = true;
+        while (roomExists)
+        {
+            roomNumber = InputValidator::getValidatedInput("Enter room number: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+            roomExists = findRoom(roomNumber) != roomsList.end();
+            if (roomExists)
+            {
+                cout << "Room number already exists. Please enter a different room number." << endl;
+            }
+        }
+        string roomType = InputValidator::getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
+        string roomFeatures = InputValidator::getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
+        double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+
+        roomsList.push_back(Room(roomNumber, roomType, roomFeatures, roomPricePerNight));
+    }
+
+    void displayRooms()
+    {
+        cout << string(50, '-') << " Available Rooms " << string(50, '-') << "\n";
+        for (const auto &room : roomsList)
+        {
+            room.displayRoomDetails();
+            cout << string(50, '-') << endl;
+        }
+    }
+
+    void updateRoom()
+    {
+        string roomNumber = InputValidator::getValidatedInput("Enter room number to update: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+        auto it = findRoom(roomNumber);
+
+        if (it == roomsList.end())
+        {
+            cout << "Room not found." << endl;
+            return;
+        }
+
+        cout << "Updating room details for room number: " << roomNumber << endl;
+        cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
+        it->displayRoomDetails();
+        cout << string(50, '-') << endl;
+        string roomType = InputValidator::getValidatedInput("Enter new room type: ", "^.+$", "Invalid room type format.");
+        string roomFeatures = InputValidator::getValidatedInput("Enter new room features: ", "^.+$", "Invalid room features format.");
+        double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter new price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+
+        *it = Room(roomNumber, roomType, roomFeatures, roomPricePerNight);
+    }
+
+    void deleteRoom()
+    {
+        string roomNumber = InputValidator::getValidatedInput("Enter room number to remove: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+        auto it = findRoom(roomNumber);
+
+        if (it == roomsList.end())
+        {
+            cout << "Room not found." << endl;
+            return;
+        }
+
+        cout << "Removing room number: " << roomNumber << endl;
+        cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
+        it->displayRoomDetails();
+        cout << string(50, '-') << endl;
+        string confirmation = InputValidator::getValidatedInput("Are you sure you want to delete this room? (y/n): ", "^(y|n)$", "Invalid input. Please enter 'y' or 'n'.");
+
+        if (confirmation == "n")
+        {
+            cout << "Room removal cancelled." << endl;
+            return;
+        }
+
+        roomsList.erase(it);
+        cout << "Room successfully removed." << endl;
+    }
+};
+
 int main()
 {
-    GuestManager guestManager;
-    shared_ptr<Guest> loggedInGuest = guestManager.signingPage();
-    if (!loggedInGuest)
-    {
-        cout << "No user logged in. Exiting program." << endl;
-        return 0;
-    }
+    // GuestManager guestManager;
+    // shared_ptr<Guest> loggedInGuest = guestManager.signingPage();
+    // if (!loggedInGuest)
+    // {
+    //     cout << "No user logged in. Exiting program." << endl;
+    //     return 0;
+    // }
+
+    RoomManager roomManager;
+    roomManager.displayRooms();
+    roomManager.deleteRoom();
 }
