@@ -254,14 +254,18 @@ public:
 class Room
 {
 private:
-    string roomNumber, roomType, roomFeatures;
+    string roomNumber, roomType;
+    int capacity; // Moved capacity here
+    string roomFeatures;
     double roomPricePerNight;
 
 public:
-    Room(string roomNumber, string roomType, string roomFeatures, double roomPricePerNight) : roomNumber(roomNumber), roomType(roomType), roomFeatures(roomFeatures), roomPricePerNight(roomPricePerNight) {}
+    Room(string roomNumber, string roomType, int capacity, string roomFeatures, double roomPricePerNight)
+        : roomNumber(roomNumber), roomType(roomType), capacity(capacity), roomFeatures(roomFeatures), roomPricePerNight(roomPricePerNight) {}
 
     string getRoomNumber() const { return roomNumber; }
     string getRoomType() const { return roomType; }
+    int getCapacity() const { return capacity; } // Getter remains unchanged
     string getRoomFeatures() const { return roomFeatures; }
     double getRoomPricePerNight() const { return roomPricePerNight; }
 
@@ -269,12 +273,14 @@ public:
     {
         cout << "Room Number: " << roomNumber << endl;
         cout << "Room Type: " << roomType << endl;
+        cout << "Capacity: " << capacity << " person(s)" << endl; // Display capacity after room type
         cout << "Room Features: " << roomFeatures << endl;
         cout << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << endl;
     }
 };
 
-class RoomManager{
+class RoomManager
+{
 private:
     vector<Room> roomsList;
 
@@ -289,14 +295,18 @@ private:
             {
                 stringstream ss(line);
                 string roomNumber, roomType, roomFeatures;
-                double roomPricePerNight;
+                string capacityStr, priceStr;
 
                 getline(ss, roomNumber, '|');
                 getline(ss, roomType, '|');
+                getline(ss, capacityStr, '|'); // Read as string
                 getline(ss, roomFeatures, '|');
-                ss >> roomPricePerNight;
+                getline(ss, priceStr); // Last field, no delimiter needed
 
-                roomsList.push_back(Room(roomNumber, roomType, roomFeatures, roomPricePerNight));
+                int capacity = stoi(capacityStr);
+                double roomPricePerNight = stod(priceStr);
+
+                roomsList.push_back(Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight));
             }
             hotel_rooms.close();
         }
@@ -312,6 +322,7 @@ private:
             {
                 hotel_rooms << room.getRoomNumber() << "|"
                             << room.getRoomType() << "|"
+                            << room.getCapacity() << "|" // Save capacity after room type
                             << room.getRoomFeatures() << "|"
                             << fixed << setprecision(2) << room.getRoomPricePerNight() << "\n";
             }
@@ -353,10 +364,11 @@ public:
             }
         }
         string roomType = InputValidator::getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
+        int capacity = stoi(InputValidator::getValidatedInput("Enter room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
         string roomFeatures = InputValidator::getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
         double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
 
-        roomsList.push_back(Room(roomNumber, roomType, roomFeatures, roomPricePerNight));
+        roomsList.push_back(Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight));
     }
 
     void displayRooms()
@@ -385,10 +397,11 @@ public:
         it->displayRoomDetails();
         cout << string(50, '-') << endl;
         string roomType = InputValidator::getValidatedInput("Enter new room type: ", "^.+$", "Invalid room type format.");
+        int capacity = stoi(InputValidator::getValidatedInput("Enter new room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
         string roomFeatures = InputValidator::getValidatedInput("Enter new room features: ", "^.+$", "Invalid room features format.");
         double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter new price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
 
-        *it = Room(roomNumber, roomType, roomFeatures, roomPricePerNight);
+        *it = Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight);
     }
 
     void deleteRoom()
@@ -419,9 +432,235 @@ public:
     }
 };
 
+class Booking
+{
+private:
+    string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate;
+    double totalPrice;
+
+public:
+    Booking(string bookingID, string guestEmail, string guestName, string roomNumber, string checkInDate, string checkOutDate, double totalPrice)
+        : bookingID(bookingID), guestEmail(guestEmail), guestName(guestName), roomNumber(roomNumber), checkInDate(checkInDate), checkOutDate(checkOutDate), totalPrice(totalPrice) {}
+
+    string getBookingID() const { return bookingID; }
+    string getGuestEmail() const { return guestEmail; }
+    string getGuestName() const { return guestName; }
+    string getRoomNumber() const { return roomNumber; }
+    string getCheckInDate() const { return checkInDate; }
+    string getCheckOutDate() const { return checkOutDate; }
+    double getTotalPrice() const { return totalPrice; }
+
+    void displayBookingDetailsAdmin() const
+    {
+        cout << "Booking ID: " << bookingID << endl;
+        cout << "Guest Email: " << guestEmail << endl;
+        cout << "Guest Name: " << guestName << endl;
+        cout << "Room Number: " << roomNumber << endl;
+        cout << "Check-In Date: " << checkInDate << endl;
+        cout << "Check-Out Date: " << checkOutDate << endl;
+        cout << "Total Price: $" << fixed << setprecision(2) << totalPrice << endl;
+    }
+
+    void displayBookingDetailsGuest() const
+    {
+        cout << "Booking ID: " << bookingID << endl;
+        cout << "Room Number: " << roomNumber << endl;
+        cout << "Check-In Date: " << checkInDate << endl;
+        cout << "Check-Out Date: " << checkOutDate << endl;
+        cout << "Total Price: $" << fixed << setprecision(2) << totalPrice << endl;
+    }
+};
+
+class BookingManager
+{
+private:
+    vector<Booking> bookingsList;
+
+    void loadBookings()
+    {
+        string line;
+        fstream hotel_bookings;
+        hotel_bookings.open("hotel_bookings.txt", ios::in);
+        if (hotel_bookings.is_open())
+        {
+            while (getline(hotel_bookings, line))
+            {
+                stringstream ss(line);
+                string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate;
+                string totalPriceStr;
+
+                getline(ss, bookingID, '|');
+                getline(ss, guestEmail, '|');
+                getline(ss, guestName, '|');
+                getline(ss, roomNumber, '|');
+                getline(ss, checkInDate, '|');
+                getline(ss, checkOutDate, '|');
+                getline(ss, totalPriceStr); // Last field, no delimiter needed
+
+                double totalPrice = stod(totalPriceStr);
+
+                bookingsList.push_back(Booking(bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate, totalPrice));
+            }
+            hotel_bookings.close();
+        }
+    }
+
+    void SaveBookings()
+    {
+        fstream hotel_bookings;
+        hotel_bookings.open("hotel_bookings.txt", ios::out);
+        if (hotel_bookings.is_open())
+        {
+            for (const auto &booking : bookingsList)
+            {
+                hotel_bookings << booking.getBookingID() << "|"
+                               << booking.getGuestEmail() << "|"
+                               << booking.getGuestName() << "|"
+                               << booking.getRoomNumber() << "|"
+                               << booking.getCheckInDate() << "|"
+                               << booking.getCheckOutDate() << "|"
+                               << fixed << setprecision(2) << booking.getTotalPrice() << "\n";
+            }
+            hotel_bookings.close();
+        }
+    }
+
+public:
+    BookingManager()
+    {
+        loadBookings();
+    }
+
+    ~BookingManager()
+    {
+        SaveBookings();
+    }
+
+    bool isValidDate(const string &date)
+    {
+        int year, month, day;
+        sscanf(date.c_str(), "%d-%d-%d", &year, &month, &day);
+        if (month < 1 || month > 12 || day < 1 || day > 31)
+            return false;
+
+        // Check for months with fewer than 31 days
+        if ((month == 4 || month == 6 || month == 9 || month == 11) && day > 30)
+            return false;
+
+        // Check for February and leap years
+        if (month == 2)
+        {
+            bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+            if (day > (isLeapYear ? 29 : 28))
+                return false;
+        }
+
+        return true;
+    }
+
+    bool isFutureDate(const string &date)
+    {
+        time_t now = time(0);
+        int year, month, day;
+        sscanf(date.c_str(), "%d-%d-%d", &year, &month, &day);
+        tm inputDate = {};
+        inputDate.tm_year = year - 1900;
+        inputDate.tm_mon = month - 1;
+        inputDate.tm_mday = day;
+        time_t inputTime = mktime(&inputDate);
+        return difftime(inputTime, now) > 0;
+    }
+
+    void addBooking()
+    {
+        cout << string(50, '-') << " Make a Booking " << string(50, '-') << "\n";
+        string checkInDate, checkOutDate;
+
+        while (true)
+        {
+            checkInDate = InputValidator::getValidatedInput("Enter check-in date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+            if (isValidDate(checkInDate) && isFutureDate(checkInDate))
+            {
+                break;
+            }
+            else
+            {
+                cout << "Check-in date must be a valid future date." << endl;
+            }
+        }
+
+        while (true)
+        {
+            checkOutDate = InputValidator::getValidatedInput("Enter check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+            if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
+            {
+                break;
+            }
+            else
+            {
+                cout << "Check-out date must be a valid date later than the check-in date." << endl;
+            }
+        }
+
+        int numberOfPeople = stoi(InputValidator::getValidatedInput("Enter number of people: ", "^[1-9]\\d*$", "Invalid number of people. Must be a positive integer."));
+
+        
+    }
+
+    void displayBookings()
+    {
+        cout << string(50, '-') << " Bookings List " << string(50, '-') << "\n";
+        for (const auto &booking : bookingsList)
+        {
+            booking.displayBookingDetailsAdmin();
+            cout << string(50, '-') << endl;
+        }
+    }
+};
+
 int main()
 {
     GuestManager guestManager;
-    Guest loggedInGuest = guestManager.signingPage();
+    RoomManager roomManager;
+    BookingManager bookingManager;
+    // Guest loggedInGuest = guestManager.signingPage();
+
+    // if (loggedInGuest.getEmail() == "admin@gmail.com")
+    // {
+    //     int choice;
+    //     do
+    //     {
+    //         cout << string(50, '-') << " Admin Menu " << string(50, '-') << "\n";
+    //         cout << "1. Add Room\n2. Update Room Details\n3. Remove Room\n4. Display Rooms\n5. Exit\n";
+    //         choice = stoi(InputValidator::getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
+    //         switch (choice)
+    //         {
+    //         case 1:
+    //             roomManager.addRoom();
+    //             break;
+    //         case 2:
+    //             roomManager.updateRoom();
+    //             break;
+    //         case 3:
+    //             roomManager.deleteRoom();
+    //             break;
+    //         case 4:
+    //             roomManager.displayRooms();
+    //             break;
+    //         case 5:
+    //             cout << "Exiting..." << endl;
+    //             break;
+    //         default:
+    //             cout << "Invalid choice." << endl;
+    //         }
+    //     } while (choice != 5);
+    // }
+    // else
+    // {
+    //     cout << "You are not authorized to access this menu." << endl;
+    // }
+
+    bookingManager.addBooking();
+
     return 0;
 }
