@@ -58,6 +58,7 @@
         "xutility": "cpp",
         "fstream": "cpp",
         "sstream": "cpp",
+        "iomanip": "cpp",
         "array": "cpp",
         "bitset": "cpp",
         "cstdarg": "cpp",
