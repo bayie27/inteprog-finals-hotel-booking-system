@@ -9,8 +9,19 @@ using namespace std;
 
 class InputValidator
 {
+private:
+    InputValidator() {}
+    InputValidator(const InputValidator &) = delete;
+    InputValidator &operator=(const InputValidator &) = delete;
+
 public:
-    static bool isValidInput(const string &input, const regex &compiledPattern)
+    static InputValidator &get()
+    {
+        static InputValidator instance;
+        return instance;
+    }
+
+    bool isValidInput(const string &input, const regex &compiledPattern)
     {
         if (input.empty())
         {
@@ -18,7 +29,7 @@ public:
         }
         return regex_match(input, compiledPattern);
     }
-    static string getValidatedInput(const string &prompt, const string &pattern, const string &errorMessage)
+    string getValidatedInput(const string &prompt, const string &pattern, const string &errorMessage)
     {
         string input;
         while (true)
@@ -182,7 +193,7 @@ public:
     // need forgot password (update password)
     void signUp()
     {
-        string email = InputValidator::getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
+        string email = InputValidator::get().getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
         // needed to scan first txt file to search if existing user (using txt file to scan as if existing user)
         if (emailExistsInFile(email))
         {
@@ -190,11 +201,11 @@ public:
             return;
         }
 
-        string password = InputValidator::getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+        string password = InputValidator::get().getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
 
-        string firstName = InputValidator::getValidatedInput("Enter your first name: ", "^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$", "First name can only contain letters and spaces.");
-        string lastName = InputValidator::getValidatedInput("Enter your last name: ", "^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$", "Last name can only be contain letters and spaces.");
-        string contactNumber = InputValidator::getValidatedInput("Enter your contact number: ", "^(09|\\+639)\\d{9}$", "Contact number must start with '09' or '+639' and be 11 digits long.");
+        string firstName = InputValidator::get().getValidatedInput("Enter your first name: ", "^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$", "First name can only contain letters and spaces.");
+        string lastName = InputValidator::get().getValidatedInput("Enter your last name: ", "^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$", "Last name can only be contain letters and spaces.");
+        string contactNumber = InputValidator::get().getValidatedInput("Enter your contact number: ", "^(09|\\+639)\\d{9}$", "Contact number must start with '09' or '+639' and be 11 digits long.");
         string fullName = firstName + " " + lastName;
 
         // Create the new guest object
@@ -208,8 +219,8 @@ public:
 
     Guest signIn()
     {
-        string email = InputValidator::getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
-        string password = InputValidator::getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+        string email = InputValidator::get().getValidatedInput("Enter your email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
+        string password = InputValidator::get().getValidatedInput("Enter your password: ", "^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
         // Checks email and password
         if (!findGuestByEmail(email, password))
         {
@@ -229,7 +240,7 @@ public:
         {
             cout << string(50, '-') << " Hotel Reservation System " << string(50, '-') << "\n";
             cout << "1. Sign In\n2. Sign Up\n3. Exit\n";
-            int choice = stoi(InputValidator::getValidatedInput("Enter your choice [1 - 3]: ", "^[1-3]$", "Invalid choice. Please enter [1 - 3]."));
+            int choice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 3]: ", "^[1-3]$", "Invalid choice. Please enter [1 - 3]."));
             switch (choice)
             {
             case 1:
@@ -273,15 +284,27 @@ public:
     {
         cout << "Room Number: " << roomNumber << endl;
         cout << "Room Type: " << roomType << endl;
-        cout << "Capacity: " << capacity << " person(s)" << endl; // Display capacity after room type
-        cout << "Room Features: " << roomFeatures << endl;
+        cout << "Capacity: " << capacity << " person(s)" << endl;
         cout << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << endl;
+        cout << "Room Features: " << roomFeatures << endl; // Display room features last
     }
 };
 
 class RoomManager
 {
 private:
+    RoomManager()
+    {
+        loadRooms();
+    }
+    RoomManager(const RoomManager &) = delete;
+    RoomManager &operator=(const RoomManager &) = delete;
+
+    ~RoomManager()
+    {
+        SaveRooms();
+    }
+
     vector<Room> roomsList;
 
     void loadRooms()
@@ -300,8 +323,8 @@ private:
                 getline(ss, roomNumber, '|');
                 getline(ss, roomType, '|');
                 getline(ss, capacityStr, '|'); // Read as string
-                getline(ss, roomFeatures, '|');
-                getline(ss, priceStr); // Last field, no delimiter needed
+                getline(ss, priceStr, '|');    // Read price before features
+                getline(ss, roomFeatures);     // Last field, no delimiter needed
 
                 int capacity = stoi(capacityStr);
                 double roomPricePerNight = stod(priceStr);
@@ -322,9 +345,9 @@ private:
             {
                 hotel_rooms << room.getRoomNumber() << "|"
                             << room.getRoomType() << "|"
-                            << room.getCapacity() << "|" // Save capacity after room type
-                            << room.getRoomFeatures() << "|"
-                            << fixed << setprecision(2) << room.getRoomPricePerNight() << "\n";
+                            << room.getCapacity() << "|"
+                            << fixed << setprecision(2) << room.getRoomPricePerNight() << "|"
+                            << room.getRoomFeatures() << "\n"; // Save room features last
             }
             hotel_rooms.close();
         }
@@ -340,14 +363,15 @@ private:
     }
 
 public:
-    RoomManager()
+    static RoomManager &get()
     {
-        loadRooms();
+        static RoomManager instance;
+        return instance;
     }
 
-    ~RoomManager()
+    auto getRoomsList() const
     {
-        SaveRooms();
+        return roomsList;
     }
 
     void addRoom()
@@ -356,17 +380,17 @@ public:
         bool roomExists = true;
         while (roomExists)
         {
-            roomNumber = InputValidator::getValidatedInput("Enter room number: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+            roomNumber = InputValidator::get().getValidatedInput("Enter room number: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
             roomExists = findRoom(roomNumber) != roomsList.end();
             if (roomExists)
             {
                 cout << "Room number already exists. Please enter a different room number." << endl;
             }
         }
-        string roomType = InputValidator::getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
-        int capacity = stoi(InputValidator::getValidatedInput("Enter room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
-        string roomFeatures = InputValidator::getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
-        double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+        string roomType = InputValidator::get().getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
+        int capacity = stoi(InputValidator::get().getValidatedInput("Enter room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer."));
+        string roomFeatures = InputValidator::get().getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
+        double roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
 
         roomsList.push_back(Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight));
     }
@@ -383,7 +407,7 @@ public:
 
     void updateRoom()
     {
-        string roomNumber = InputValidator::getValidatedInput("Enter room number to update: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+        string roomNumber = InputValidator::get().getValidatedInput("Enter room number to update: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
         auto it = findRoom(roomNumber);
 
         if (it == roomsList.end())
@@ -396,17 +420,17 @@ public:
         cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
         it->displayRoomDetails();
         cout << string(50, '-') << endl;
-        string roomType = InputValidator::getValidatedInput("Enter new room type: ", "^.+$", "Invalid room type format.");
-        int capacity = stoi(InputValidator::getValidatedInput("Enter new room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
-        string roomFeatures = InputValidator::getValidatedInput("Enter new room features: ", "^.+$", "Invalid room features format.");
-        double roomPricePerNight = stod(InputValidator::getValidatedInput("Enter new price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+        string roomType = InputValidator::get().getValidatedInput("Enter new room type: ", "^.+$", "Invalid room type format.");
+        int capacity = stoi(InputValidator::get().getValidatedInput("Enter new room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
+        string roomFeatures = InputValidator::get().getValidatedInput("Enter new room features: ", "^.+$", "Invalid room features format.");
+        double roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter new price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
 
         *it = Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight);
     }
 
     void deleteRoom()
     {
-        string roomNumber = InputValidator::getValidatedInput("Enter room number to remove: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+        string roomNumber = InputValidator::get().getValidatedInput("Enter room number to remove: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
         auto it = findRoom(roomNumber);
 
         if (it == roomsList.end())
@@ -419,7 +443,7 @@ public:
         cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
         it->displayRoomDetails();
         cout << string(50, '-') << endl;
-        string confirmation = InputValidator::getValidatedInput("Are you sure you want to delete this room? (y/n): ", "^(y|n)$", "Invalid input. Please enter 'y' or 'n'.");
+        string confirmation = InputValidator::get().getValidatedInput("Are you sure you want to delete this room? (y/n): ", "^(y|n)$", "Invalid input. Please enter 'y' or 'n'.");
 
         if (confirmation == "n")
         {
@@ -435,12 +459,12 @@ public:
 class Booking
 {
 private:
-    string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate;
+    string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate, paymentMethod; // Added paymentMethod
     double totalPrice;
 
 public:
-    Booking(string bookingID, string guestEmail, string guestName, string roomNumber, string checkInDate, string checkOutDate, double totalPrice)
-        : bookingID(bookingID), guestEmail(guestEmail), guestName(guestName), roomNumber(roomNumber), checkInDate(checkInDate), checkOutDate(checkOutDate), totalPrice(totalPrice) {}
+    Booking(string bookingID, string guestEmail, string guestName, string roomNumber, string checkInDate, string checkOutDate, double totalPrice, string paymentMethod)
+        : bookingID(bookingID), guestEmail(guestEmail), guestName(guestName), roomNumber(roomNumber), checkInDate(checkInDate), checkOutDate(checkOutDate), totalPrice(totalPrice), paymentMethod(paymentMethod) {}
 
     string getBookingID() const { return bookingID; }
     string getGuestEmail() const { return guestEmail; }
@@ -449,6 +473,7 @@ public:
     string getCheckInDate() const { return checkInDate; }
     string getCheckOutDate() const { return checkOutDate; }
     double getTotalPrice() const { return totalPrice; }
+    string getPaymentMethod() const { return paymentMethod; } // Getter for paymentMethod
 
     void displayBookingDetailsAdmin() const
     {
@@ -459,6 +484,7 @@ public:
         cout << "Check-In Date: " << checkInDate << endl;
         cout << "Check-Out Date: " << checkOutDate << endl;
         cout << "Total Price: $" << fixed << setprecision(2) << totalPrice << endl;
+        cout << "Payment Method: " << paymentMethod << endl; // Display paymentMethod
     }
 
     void displayBookingDetailsGuest() const
@@ -468,6 +494,7 @@ public:
         cout << "Check-In Date: " << checkInDate << endl;
         cout << "Check-Out Date: " << checkOutDate << endl;
         cout << "Total Price: $" << fixed << setprecision(2) << totalPrice << endl;
+        cout << "Payment Method: " << paymentMethod << endl; // Display paymentMethod
     }
 };
 
@@ -486,7 +513,7 @@ private:
             while (getline(hotel_bookings, line))
             {
                 stringstream ss(line);
-                string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate;
+                string bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate, paymentMethod;
                 string totalPriceStr;
 
                 getline(ss, bookingID, '|');
@@ -495,11 +522,12 @@ private:
                 getline(ss, roomNumber, '|');
                 getline(ss, checkInDate, '|');
                 getline(ss, checkOutDate, '|');
-                getline(ss, totalPriceStr); // Last field, no delimiter needed
+                getline(ss, totalPriceStr, '|');
+                getline(ss, paymentMethod); // Read paymentMethod
 
                 double totalPrice = stod(totalPriceStr);
 
-                bookingsList.push_back(Booking(bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate, totalPrice));
+                bookingsList.push_back(Booking(bookingID, guestEmail, guestName, roomNumber, checkInDate, checkOutDate, totalPrice, paymentMethod));
             }
             hotel_bookings.close();
         }
@@ -519,21 +547,11 @@ private:
                                << booking.getRoomNumber() << "|"
                                << booking.getCheckInDate() << "|"
                                << booking.getCheckOutDate() << "|"
-                               << fixed << setprecision(2) << booking.getTotalPrice() << "\n";
+                               << fixed << setprecision(2) << booking.getTotalPrice() << "|"
+                               << booking.getPaymentMethod() << "\n"; // Save paymentMethod
             }
             hotel_bookings.close();
         }
-    }
-
-public:
-    BookingManager()
-    {
-        loadBookings();
-    }
-
-    ~BookingManager()
-    {
-        SaveBookings();
     }
 
     bool isValidDate(const string &date)
@@ -571,14 +589,44 @@ public:
         return difftime(inputTime, now) > 0;
     }
 
-    void addBooking()
+    int calculateDaysDifference(const string &checkInDate, const string &checkOutDate)
+    {
+        tm checkIn = {}, checkOut = {};
+        sscanf(checkInDate.c_str(), "%d-%d-%d", &checkIn.tm_year, &checkIn.tm_mon, &checkIn.tm_mday);
+        sscanf(checkOutDate.c_str(), "%d-%d-%d", &checkOut.tm_year, &checkOut.tm_mon, &checkOut.tm_mday);
+
+        // Adjust for tm structure (year since 1900, month 0-based)
+        checkIn.tm_year -= 1900;
+        checkIn.tm_mon -= 1;
+        checkOut.tm_year -= 1900;
+        checkOut.tm_mon -= 1;
+
+        time_t checkInTime = mktime(&checkIn);
+        time_t checkOutTime = mktime(&checkOut);
+
+        // Calculate difference in seconds and convert to days
+        return difftime(checkOutTime, checkInTime) / (60 * 60 * 24);
+    }
+
+public:
+    BookingManager()
+    {
+        loadBookings();
+    }
+
+    ~BookingManager()
+    {
+        SaveBookings();
+    }
+
+    void addBooking(const Guest &guest)
     {
         cout << string(50, '-') << " Make a Booking " << string(50, '-') << "\n";
         string checkInDate, checkOutDate;
 
         while (true)
         {
-            checkInDate = InputValidator::getValidatedInput("Enter check-in date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+            checkInDate = InputValidator::get().getValidatedInput("Enter check-in date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
             if (isValidDate(checkInDate) && isFutureDate(checkInDate))
             {
                 break;
@@ -591,7 +639,7 @@ public:
 
         while (true)
         {
-            checkOutDate = InputValidator::getValidatedInput("Enter check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+            checkOutDate = InputValidator::get().getValidatedInput("Enter check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
             if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
             {
                 break;
@@ -602,9 +650,82 @@ public:
             }
         }
 
-        int numberOfPeople = stoi(InputValidator::getValidatedInput("Enter number of people: ", "^[1-9]\\d*$", "Invalid number of people. Must be a positive integer."));
+        int numberOfPeople = stoi(InputValidator::get().getValidatedInput("Enter number of people: ", "^[1-9]\\d*$", "Invalid number of people. Must be a positive integer."));
 
-        
+        vector<Room> availableRooms;
+        for (const auto &room : RoomManager::get().getRoomsList())
+        {
+            bool isAvailable = true;
+
+            // Check if room capacity is sufficient
+            if (room.getCapacity() < numberOfPeople)
+            {
+                continue;
+            }
+
+            // Check if room is already booked for the given date range
+            for (const auto &booking : bookingsList)
+            {
+                if (booking.getRoomNumber() == room.getRoomNumber() &&
+                    ((checkInDate >= booking.getCheckInDate() && checkInDate < booking.getCheckOutDate()) ||
+                     (checkOutDate > booking.getCheckInDate() && checkOutDate <= booking.getCheckOutDate()) ||
+                     (checkInDate <= booking.getCheckInDate() && checkOutDate >= booking.getCheckOutDate())))
+                {
+                    isAvailable = false;
+                    break;
+                }
+            }
+
+            if (isAvailable)
+            {
+                availableRooms.push_back(room);
+            }
+        }
+
+        if (availableRooms.empty())
+        {
+            cout << "No available rooms for the specified date range and number of people." << endl;
+            return;
+        }
+
+        cout << left << setw(15) << "Room Number"
+             << setw(20) << "Room Type"
+             << setw(10) << "Capacity"
+             << setw(15) << "Price/Night"
+             << setw(20) << "Features" << endl; // Display features last
+        cout << string(90, '-') << endl;
+
+        for (const auto &room : availableRooms)
+        {
+            cout << left << setw(15) << room.getRoomNumber()
+                 << setw(20) << room.getRoomType()
+                 << setw(10) << room.getCapacity()
+                 << setw(15) << fixed << setprecision(2) << room.getRoomPricePerNight()
+                 << setw(20) << room.getRoomFeatures() << endl; // Display features last
+        }
+
+        string roomNumber = InputValidator::get().getValidatedInput("Enter the room number to book: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
+        auto it = find_if(availableRooms.begin(), availableRooms.end(),
+                          [&roomNumber](const Room &room)
+                          {
+                              return room.getRoomNumber() == roomNumber;
+                          });
+
+        if (it == availableRooms.end())
+        {
+            cout << "Invalid room selection. Room number not found in available rooms." << endl;
+            return;
+        }
+
+        Room selectedRoom = *it;
+        double totalPrice = selectedRoom.getRoomPricePerNight() * calculateDaysDifference(checkInDate, checkOutDate);
+        string bookingID = to_string(bookingsList.size() + 1);
+
+        string paymentMethod = InputValidator::get().getValidatedInput("Enter payment method (e.g., Credit Card, PayPal): ", "^.+$", "Invalid payment method.");
+
+        bookingsList.push_back(Booking(bookingID, guest.getEmail(), guest.getFullName(), selectedRoom.getRoomNumber(), checkInDate, checkOutDate, totalPrice, paymentMethod));
+
+        cout << "Booking successful! (ID: " << bookingID << ")" << endl;
     }
 
     void displayBookings()
@@ -621,9 +742,8 @@ public:
 int main()
 {
     GuestManager guestManager;
-    RoomManager roomManager;
     BookingManager bookingManager;
-    // Guest loggedInGuest = guestManager.signingPage();
+    Guest loggedInGuest = guestManager.signingPage();
 
     // if (loggedInGuest.getEmail() == "admin@gmail.com")
     // {
@@ -632,20 +752,20 @@ int main()
     //     {
     //         cout << string(50, '-') << " Admin Menu " << string(50, '-') << "\n";
     //         cout << "1. Add Room\n2. Update Room Details\n3. Remove Room\n4. Display Rooms\n5. Exit\n";
-    //         choice = stoi(InputValidator::getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
+    //         choice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
     //         switch (choice)
     //         {
     //         case 1:
-    //             roomManager.addRoom();
+    //             RoomManager::get().addRoom();
     //             break;
     //         case 2:
-    //             roomManager.updateRoom();
+    //             RoomManager::get().updateRoom();
     //             break;
     //         case 3:
-    //             roomManager.deleteRoom();
+    //             RoomManager::get().deleteRoom();
     //             break;
     //         case 4:
-    //             roomManager.displayRooms();
+    //             RoomManager::get().displayRooms();
     //             break;
     //         case 5:
     //             cout << "Exiting..." << endl;
@@ -660,7 +780,6 @@ int main()
     //     cout << "You are not authorized to access this menu." << endl;
     // }
 
-    bookingManager.addBooking();
-
+    bookingManager.addBooking(loggedInGuest);
     return 0;
 }

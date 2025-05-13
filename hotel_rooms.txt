@@ -1,4 +1,5 @@
-101|Standard|2|Wifi, Aircon|600.00
-102|Deluxe|4|Wifi, Aircon, TV|1200.00
-103|Suite|6|Wifi, Aircon, TV, Kitchenette|2500.00
-104|Single|1|Wifi|400.00
+101|Standard|2|600.00|Wifi, Aircon
+102|Deluxe|4|1200.00|Wifi, Aircon, TV
+103|Suite|6|2500.00|Wifi, Aircon, TV, Kitchenette
+104|Single|1|400.00|Wifi
+105|Double|2|600.00|Wifi, Aircon
