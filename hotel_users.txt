@@ -1,5 +1,4 @@
 admin@gmail.com|adminadmin|Admin|Admin|Admin Admin|09123456789
 paulo@gmail.com|paulo123|Paulo|Tenorio|Paulo Tenorio|09765347230
-carol@gmail.com|carol123|Carol|Salazar|Carol Salazar|09765347230
 enjey@gmail.com|enjey123|Enjey Kashlee|Alonzo|Enjey Kashlee Alonzo|09765347230
-dani@gmail.com|dani123|Daniel Luis|Sahagun|Daniel Luis Sahagun|09765347230
+dani@gmail.com|dani123|Dani Luis|Sahagun|Dani Luis Sahagun|09765347230

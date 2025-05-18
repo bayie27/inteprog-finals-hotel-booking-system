@@ -1,4 +1,5 @@
-1|enjey@gmail.com|Enjey Kashlee Alonzo|102|2025-05-13|2025-05-15|2400.00
-2|enjey@gmail.com|Enjey Kashlee Alonzo|103|2025-05-13|2025-05-16|7500.00
-3|dani@gmail.com|Daniel Luis Sahagun|101|2025-05-13|2025-05-15|1200.00
-4|paulo@gmail.com|Paulo Tenorio|103|2025-12-12|2026-12-12|912500.00
+1|enjey@gmail.com|Enjey Kashlee Alonzo|104|2025-05-24|2025-05-30|2400.00|Gcash
+2|paulo@gmail.com|Paulo Tenorio|105|2025-05-24|2025-05-26|1200.00|Bank Transfer
+3|dani@gmail.com|Dani Luis Sahagun|102|2025-05-20|2025-05-24|4800.00|Credit/Debit Card
+4|enjey@gmail.com|Enjey Kashlee Alonzo|103|2025-05-24|2025-05-30|15000.00|Cash
+5|paulo@gmail.com|Paulo Tenorio|103|2025-05-20|2025-05-24|10000.00|Bank Transfer
