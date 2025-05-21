@@ -1,5 +1,16 @@
 101|Standard|2|600.00|Wifi, Aircon
 102|Deluxe|4|1200.00|Wifi, Aircon, TV
 103|Suite|6|2500.00|Wifi, Aircon, TV, Kitchenette
-104|Single|1|400.00|Wifi
+104|Single|1|400.00|Wifi, Aircon
 105|Double|2|600.00|Wifi, Aircon
+106|Family|5|1800.00|Wifi, Aircon, TV, Mini Fridge
+201|Executive|3|1500.00|Wifi, Aircon, TV, Work Desk
+202|Penthouse|8|5000.00|Wifi, Aircon
+203|Standard|2|650.00|Wifi, Aircon
+204|Deluxe|4|1250.00|Wifi, Aircon, TV, Balcony
+205|Suite|6|2600.00|Wifi, Aircon, TV, Kitchenette, Jacuzzi
+206|Single|1|450.00|Wifi, Aircon
+301|Double|2|700.00|Wifi, Aircon, TV
+302|Family|5|1850.00|Wifi, Aircon, TV, Mini Fridge, Balcony
+303|Executive|3|1550.00|Wifi, Aircon, TV, Work Desk, Coffee Maker
+304|Penthouse|8|5200.00|Wifi, Aircon, TV, Private Pool

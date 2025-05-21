@@ -4,3 +4,5 @@
 4|enjey@gmail.com|Enjey Kashlee Alonzo|103|2025-05-24|2025-05-30|15000.00|Cash
 5|paulo@gmail.com|Paulo Tenorio|103|2025-05-20|2025-05-24|10000.00|Bank Transfer
 6|seb@gmail.com|Seb Meer|103|2026-02-11|2026-02-12|2500.00|Credit/Debit Card
+7|seb@gmail.com|Seb Meer|202|2025-06-01|2025-06-01|0.00|Cash
+8|seb@gmail.com|Seb Meer|304|2025-06-01|2025-06-02|5200.00|Cash

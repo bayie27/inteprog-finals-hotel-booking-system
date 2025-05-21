@@ -1504,7 +1504,7 @@ public:
             while (!validDates)
             {
                 checkOutDate = InputValidator::get().getValidatedInput("Enter check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
-                if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate >= checkInDate)
+                if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
                     validDates = true;
                 else
                     cout << "Check-out date must be a valid date on or after the check-in date (up to 1 year from today)." << endl;
@@ -1650,7 +1650,7 @@ public:
             cout << "No bookings found." << endl;
             return;
         }
-        cout << string(160, '-') << "\n";
+        cout << string(173, '-') << "\n";
         cout << left << setw(15) << "Booking ID"
              << setw(35) << "Guest Email"
              << setw(40) << "Guest Name"
@@ -1659,13 +1659,13 @@ public:
              << setw(18) << "Check-out Date"
              << setw(15) << "Total Price"
              << setw(20) << "Payment Method" << endl;
-        cout << string(160, '-') << "\n";
+        cout << string(173, '-') << "\n";
 
         for (const auto &booking : bookingsList)
         {
             booking.displayBookingDetailsAdminTable();
         }
-        cout << string(160, '-') << "\n";
+        cout << string(173, '-') << "\n";
 
         cout << "\nPress ENTER to go back to the menu..." << endl;
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
