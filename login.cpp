@@ -5,14 +5,16 @@
 #include <vector>
 #include <iomanip>
 #include <sstream>
-#include <iomanip>
+#include <limits>
 using namespace std;
 
 const string EMAIL_REGEX = "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)";
+const string EMAIL_B_REGEX = "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$|[bB])";
 const string PASSWORD_REGEX = "^[a-zA-Z0-9@#$%^&+=]{6,}$";
-const string FIRSTNAME_REGEX = "^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$";
-const string LASTNAME_REGEX = "^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$";
+const string FIRSTNAME_REGEX = "^[A-Z][a-z]+([ -][A-Z][a-z]+)*$";
+const string LASTNAME_REGEX = "^[A-Z][a-z]{1,49}([ '-][A-Z][a-z]{1,49})*( (Jr\\.|Sr\\.|II|III|IV|V))?$";
 const string CONTACT_REGEX = "^(09|\\+639)\\d{9}$";
+const string CONTACT_B_REGEX = "^(09\\d{9}|\\+639\\d{9}|[bB])$";
 
 class InputValidator
 {
@@ -32,10 +34,12 @@ public:
     {
         return regex_match(input, compiledPattern);
     }
+
     string getValidatedInput(const string &prompt, const string &pattern, const string &errorMessage)
     {
         string input;
-        while (true)
+        bool invalidInput = true;
+        while (invalidInput)
         {
             cout << prompt;
             getline(cin, input);
@@ -49,6 +53,7 @@ public:
                 cout << errorMessage << endl;
             }
         }
+        return "";
     }
 };
 
@@ -99,7 +104,7 @@ public:
     string getCheckInDate() const { return checkInDate; }
     string getCheckOutDate() const { return checkOutDate; }
     double getTotalPrice() const { return totalPrice; }
-    string getPaymentMethod() const { return paymentMethod; } // Getter for paymentMethod
+    string getPaymentMethod() const { return paymentMethod; }
 
     void setRoomNumber(const string &roomNum) { roomNumber = roomNum; }
     void setCheckInDate(const string &checkIn) { checkInDate = checkIn; }
@@ -118,6 +123,11 @@ public:
         cout << "Payment Method: " << paymentMethod << endl; // Display paymentMethod
     }
 
+    void displayBookingDetailsAdminTable() const
+    {
+        cout << left << setw(15) << bookingID << setw(35) << guestEmail << setw(40) << guestName << setw(15) << roomNumber << setw(17) << checkInDate << setw(18) << checkOutDate << setw(15) << fixed << setprecision(2) << totalPrice << setw(20) << paymentMethod << endl; // Display paymentMethod
+    }
+
     void displayBookingDetailsGuest() const
     {
         cout << "Booking ID: " << bookingID << endl;
@@ -126,6 +136,11 @@ public:
         cout << "Check-Out Date: " << checkOutDate << endl;
         cout << "Total Price: $" << fixed << setprecision(2) << totalPrice << endl;
         cout << "Payment Method: " << paymentMethod << endl; // Display paymentMethod
+    }
+
+    void displayBookingDetailsGuestTable() const
+    {
+        cout << left << setw(15) << bookingID << setw(15) << roomNumber << setw(17) << checkInDate << setw(18) << checkOutDate << setw(15) << fixed << setprecision(2) << totalPrice << setw(20) << paymentMethod << endl; // Display paymentMethod
     }
 };
 
@@ -156,6 +171,26 @@ private:
         return false;
     }
 
+    bool contactNumberExistsInFile(const string &contactNumber)
+    {
+        fstream file;
+
+        file.open(USER_FILE, ios::in); // read
+        if (file.is_open())
+        {
+            string line;
+            while (getline(file, line))
+            {
+                if (line.substr(line.rfind('|') + 1) == contactNumber)
+                {
+                    file.close();
+                    return true;
+                }
+            }
+        } // else throw (File can't be open.
+        return false;
+    }
+
     void addGuestToFile(const Guest &guest)
     {
         fstream file;
@@ -166,7 +201,7 @@ private:
         file.open(USER_FILE, ios::app); // append
         if (file.is_open())
         {
-            file << guest.getEmail() << "|" << guest.getPassword() << "|" << guest.getFirstName() << "|" << guest.getLastName() << "|" << guest.getFullName() << "|" << guest.getContactNumber();
+            file << guest.getEmail() << "|" << guest.getPassword() << "|" << guest.getFirstName() << "|" << guest.getLastName() << "|" << guest.getFullName() << "|" << guest.getContactNumber() << "\n";
             file.close();
         } // else throw (File can't be open.
     }
@@ -201,53 +236,243 @@ private:
         return false; // email/password not found
     }
 
+    bool loadGuestNumber(const string &email, const string &contactNumber)
+    {
+        fstream file;
+        vector<string> tokens;
+
+        file.open(USER_FILE, ios::in);
+        if (file.is_open())
+        {
+            string line;
+            while (getline(file, line))
+            {
+                tokens.clear();
+                stringstream ss(line);
+                string token;
+                while (getline(ss, token, '|'))
+                {
+                    tokens.push_back(token);
+                }
+                if (tokens.size() == 6 && tokens[0] == email && tokens[5] == contactNumber)
+                {
+                    loggedInGuest = Guest(tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]);
+                    file.close();
+                    return true;
+                }
+            }
+            file.close();
+        } // else throw (File can't be open.
+        return false; // email/contact number not found
+    }
+
+    bool loadGuestEmail(const string &email)
+    {
+        fstream file;
+        vector<string> tokens;
+
+        file.open(USER_FILE, ios::in);
+        if (file.is_open())
+        {
+            string line;
+            while (getline(file, line))
+            {
+                tokens.clear();
+                stringstream ss(line);
+                string token;
+                while (getline(ss, token, '|'))
+                {
+                    tokens.push_back(token);
+                }
+                if (tokens.size() == 6 && tokens[0] == email)
+                {
+                    loggedInGuest = Guest(tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]);
+                    file.close();
+                    return true;
+                }
+            }
+            file.close();
+        } // else throw (File can't be open.
+        return false; // email not found
+    }
+
+    bool noUsersInFile()
+    {
+        fstream file;
+        string adminline, line;
+
+        file.open(USER_FILE, ios::in);
+        if (file.is_open())
+        {
+            getline(file, adminline);
+            getline(file, line);
+            if (line.empty())
+            {
+                file.close();
+                return true;
+            }
+            file.close();
+        } // else throw (File can't be open.
+        return false;
+    }
+
 public:
     GuestManager() : USER_FILE("hotel_users.txt") {}
 
-    void signUp()
+    void adminAddGuest()
     {
-        cout << string(50, '-') << " Sign Up Page " << string(50, '-') << "\n";
-        string email = InputValidator::get().getValidatedInput("Enter your email: ", EMAIL_REGEX, "Invalid email format.");
-        if (emailExistsInFile(email))
+        string choice, email, password, firstName, lastName, contactNumber, fullName;
+        do
         {
-            cout << "That email is already registered. Try another.\n";
-            return;
-        }
-        string password = InputValidator::get().getValidatedInput("Enter your password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
-        string firstName = InputValidator::get().getValidatedInput("Enter your first name: ", FIRSTNAME_REGEX, "First name can only contain letters and spaces.");
-        string lastName = InputValidator::get().getValidatedInput("Enter your last name: ", LASTNAME_REGEX, "Last name can only contain letters and spaces.");
-        string contactNumber = InputValidator::get().getValidatedInput("Enter your contact number: ", CONTACT_REGEX, "Contact number must start with '09' or '+639' and be 11 digits long.");
-        string fullName = firstName + " " + lastName;
+            cout << string(58, '-') << " Add User " << string(58, '-') << "\n";
+            for (;;)
+            {
+                email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+                if (email == "B" | email == "b")
+                {
+                    cout << "Going back to menu...\n";
+                    return;
+                }
+                if (emailExistsInFile(email))
+                {
+                    cout << "That email is already registered. Try another.\n";
+                    continue;
+                }
+                break;
+            }
+            password = InputValidator::get().getValidatedInput("Enter password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+            firstName = InputValidator::get().getValidatedInput("Enter first name: ", FIRSTNAME_REGEX, "Invalid first name format. Numbers, lowercase starts, and special characters are not allowed.");
+            lastName = InputValidator::get().getValidatedInput("Enter last name: ", LASTNAME_REGEX, "Invalid name format. Numbers, lowercase starts, and special characters are not allowed.");
+            for (;;)
+            {
+                contactNumber = InputValidator::get().getValidatedInput("Enter contact number: ", CONTACT_B_REGEX, "Contact number must start with '09' or '+639' and be 11 digits long.");
+                if (contactNumber == "B" | contactNumber == "b")
+                {
+                    cout << "Going back to menu...\n";
+                    return;
+                }
+                if (contactNumberExistsInFile(contactNumber))
+                {
+                    cout << "That contact number is already registered. Try another or enter 'B' to go back.\n";
+                    continue;
+                }
+                break;
+            }
+            fullName = firstName + " " + lastName;
+            cout << string(50, '-') << "\n\n";
+            cout << "Email: " << email << "\n"
+                 << "Password: " << password << "\n"
+                 << "First name: " << firstName << "\n"
+                 << "Last name: " << lastName << "\n"
+                 << "Phone: " << contactNumber << "\n";
+            cout << string(50, '-') << "\n";
+            choice = InputValidator::get().getValidatedInput("Confirm these details [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
+        } while (choice == "N" | choice == "n");
+
         Guest newGuest(email, password, firstName, lastName, fullName, contactNumber);
         addGuestToFile(newGuest);
-        cout << "Account created successfully! Welcome, " << newGuest.getFullName() << "!\n";
+        cout << newGuest.getFirstName() << "'s account created successfully!\n";
+    }
+
+    void signUp()
+    {
+        string choice, email, password, firstName, lastName, contactNumber, fullName;
+        do
+        {
+            cout << string(56, '-') << " Sign Up Page " << string(56, '-') << "\n";
+            for (;;)
+            {
+                email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+                if (email == "B" | email == "b")
+                {
+                    cout << "Going back to menu...\n";
+                    return;
+                }
+                if (emailExistsInFile(email))
+                {
+                    cout << "That email is already registered. Try another.\n";
+                    continue;
+                }
+                break;
+            }
+            password = InputValidator::get().getValidatedInput("Enter password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+            firstName = InputValidator::get().getValidatedInput("Enter first name: ", FIRSTNAME_REGEX, "Invalid first name format. Numbers, lowercase starts, and special characters are not allowed.");
+            lastName = InputValidator::get().getValidatedInput("Enter last name: ", LASTNAME_REGEX, "Invalid last name format. Numbers, lowercase starts, and special characters are not allowed.");
+            for (;;)
+            {
+                contactNumber = InputValidator::get().getValidatedInput("Enter contact number: ", CONTACT_B_REGEX, "Contact number must start with '09' or '+639' and be 11 digits long.");
+                if (contactNumber == "B" | contactNumber == "b")
+                {
+                    cout << "Going back to menu...\n";
+                    return;
+                }
+                if (contactNumberExistsInFile(contactNumber))
+                {
+                    cout << "That contact number is already registered. Try another or enter 'B' to go back.\n";
+                    continue;
+                }
+                break;
+            }
+            fullName = firstName + " " + lastName;
+            cout << string(50, '-') << "\n";
+            cout << "Email: " << email << "\n"
+                 << "Password: " << password << "\n"
+                 << "First name: " << firstName << "\n"
+                 << "Last name: " << lastName << "\n"
+                 << "Phone: " << contactNumber << "\n";
+            cout << string(50, '-') << "\n";
+            choice = InputValidator::get().getValidatedInput("Confirm these details [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
+        } while (choice == "N" | choice == "n");
+
+        Guest newGuest(email, password, firstName, lastName, fullName, contactNumber);
+        addGuestToFile(newGuest);
+        cout << "\nAccount created successfully! Welcome, " << newGuest.getFullName() << "!\n";
     }
 
     Guest signIn()
     {
-        cout << string(50, '-') << " Sign In Page " << string(50, '-') << "\n";
-        string email = InputValidator::get().getValidatedInput("Enter your email: ", EMAIL_REGEX, "Invalid email format.");
-        string password = InputValidator::get().getValidatedInput("Enter your password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
-        if (!loadGuest(email, password))
+        cout << string(56, '-') << " Sign In Page " << string(56, '-') << "\n";
+        for (;;)
         {
-            cout << "Email not found or password is incorrect.\n";
-            return Guest();
+            string email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+            if (email == "B" | email == "b")
+            {
+                cout << "Going back to menu...\n";
+                return Guest();
+            }
+            string password = InputValidator::get().getValidatedInput("Enter password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+            if (!loadGuest(email, password))
+            {
+                cout << "Email not found or password is incorrect.\n";
+                continue;
+            }
+            break;
         }
-        cout << "Welcome, " << loggedInGuest.getFullName() << "!\n";
+        cout << "\nWelcome, " << loggedInGuest.getFullName() << "!\n";
         return loggedInGuest;
     }
 
     void forgotPassword()
     {
-        cout << string(50, '-') << " Forgot Password " << string(50, '-') << "\n";
-        string email = InputValidator::get().getValidatedInput("Enter your email: ", EMAIL_REGEX, "Invalid email format.");
-        string password = InputValidator::get().getValidatedInput("Enter your password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
-        if (!loadGuest(email, password))
+        string email, contactNumber;
+        cout << string(54, '-') << " Forgot Password " << string(54, '-') << "\n";
+        for (;;)
         {
-            cout << "Email not found or password is incorrect.\n";
-            return;
+            email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+            if (email == "B" | email == "b")
+            {
+                cout << "Going back to menu...\n";
+                return;
+            }
+            contactNumber = InputValidator::get().getValidatedInput("Enter contact number: ", CONTACT_REGEX, "Contact number must start with '09' or '+639' and be 11 digits long.");
+            if (!loadGuestNumber(email, contactNumber))
+            {
+                cout << "Email not found or contact number is incorrect.\n";
+                continue;
+            }
+            break;
         }
-        cout << "\n";
+        cout << string(50, '-') << "\n";
         fstream file;
         string line;
         vector<string> lines;
@@ -263,7 +488,7 @@ public:
                 {
                     string temp;
                     vector<string> tokens;
-                    string newPassword = InputValidator::get().getValidatedInput("Enter your new password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+                    string newPassword = InputValidator::get().getValidatedInput("Enter new password: ", PASSWORD_REGEX, "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
                     while (getline(ss, temp, '|'))
                         tokens.push_back(temp);
                     if (tokens.size() == 5)
@@ -283,67 +508,115 @@ public:
             }
             file.close();
         }
-        cout << "Password updated successfully.\n";
+        cout << "Password updated successfully!\n";
     }
 
-    void editGuestInfo(vector<Booking> &bookingsList)
+    void adminEditGuestInfo(vector<Booking> &bookingsList, Guest guest)
     {
-        // for Admin
-        // fstream file;
-        // string temp;
-        // file.open(USER_FILE, ios::in); // read
-        // if (file.is_open())
-        // {
-        //     getline(file, temp);
-        //     if (temp.empty())
-        //     {
-        //         cout << "No users found.\n";
-        //         file.close();
-        //         return;
-        //     }
-        //     file.close();
-        // } // else throw (File can't be open.
-        cout << string(50, '-') << " Personal Info " << string(50, '-') << "\n";
+        string email;
+        cout << string(57, '-') << " Edit Guest " << string(57, '-') << "\n";
+        if (noUsersInFile())
+        {
+            cout << "No users found.\n";
+            return;
+        }
+        for (;;)
+        {
+            email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+            if (email == "B" || email == "b")
+            {
+                cout << "Going back to menu...\n";
+                return;
+            }
+            if (!loadGuestEmail(email))
+            {
+                cout << "Email not found!\n";
+                continue;
+            }
+            string confirm = editGuestInfo(bookingsList, guest);
+            if (confirm == "n")
+            {
+                continue;
+            }
 
+            break;
+        }
+    }
+
+    string editGuestInfo(vector<Booking> &bookingsList, Guest guest)
+    {
+        string firstName, lastName, fullName, contactNumber, password;
+        cout << string(52, '-') << " Edit Account Details " << string(52, '-') << "\n";
         cout << "Name: " << loggedInGuest.getFullName() << "\n"
              << "Phone: " << loggedInGuest.getContactNumber() << "\n"
              << "Email: " << loggedInGuest.getEmail() << "\n"
-             << "Password: " << loggedInGuest.getPassword() << "\n\n";
+             << "Password: " << loggedInGuest.getPassword() << "\n"
+             << string(50, '-') << "\n";
 
-        cout << "Editing Info...\n"
-             << "Note: If you want to continue with that info press ENTER.\n";
-        string firstName = InputValidator::get().getValidatedInput("Enter your first name: ", "^$|^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$", "First name can only contain letters and spaces.");
+        if (guest.getEmail() == "admin@gmail.com")
+        {
+            string confirm = InputValidator::get().getValidatedInput("Is this the correct guest? [Y/N]: ", "^[YyNn]$", "Please enter [Y/N].");
+
+            if (confirm == "N" || confirm == "n")
+            {
+                cout << "Let's try again.\n";
+                return "n";
+            }
+        }
+
+        cout << "\nEditing Info...\nNote: Leave the field blank and press ENTER to keep its current value.\n"
+             << string(57, '-') << "\n";
+        firstName = InputValidator::get().getValidatedInput("Enter first name ('B' to go back): ", "^$|^([A-Z][a-z]{1,49})( [A-Z][a-z]{1,49})?$|[bB]", "Invalid first name format. Numbers, lowercase starts, and special characters are not allowed. Enter 'B' to go back.");
+        if (firstName == "B" || firstName == "b")
+        {
+            cout << "Going back to menu...\n";
+            return "";
+        }
         if (firstName.empty())
         {
             firstName = loggedInGuest.getFirstName();
         }
-        string lastName = InputValidator::get().getValidatedInput("Enter your last name: ", "^$|^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$", "Last name can only be contain letters and spaces.");
+        lastName = InputValidator::get().getValidatedInput("Enter last name: ", "^$|^[A-Z][a-z]{1,49}(['-][A-Z][a-z]{1,49})?( (Jr\\.|Sr\\.|II|III|IV|V))?$", "Invalid first name format. Numbers, lowercase starts, and special characters are not allowed.");
         if (lastName.empty())
         {
             lastName = loggedInGuest.getLastName();
         }
-        string fullName = firstName + " " + lastName;
-        string contactNumber = InputValidator::get().getValidatedInput("Enter your contact number: ", "^$|^(09|\\+639)\\d{9}$", "Contact number must start with '09' or '+639' and be 11 digits long.");
+        fullName = firstName + " " + lastName;
+        for (;;)
+        {
+            contactNumber = InputValidator::get().getValidatedInput("Enter contact number: ", "(^$|^(09\\d{9}|\\+639\\d{9})$|^[bB]$)", "Contact number must start with '09' or '+639' and be 11 digits long.");
+            if (contactNumber == "B" | contactNumber == "b")
+            {
+                cout << "Going back to menu...\n";
+                return "";
+            }
+            if (contactNumberExistsInFile(contactNumber))
+            {
+                cout << "That contact number is already registered. Try another or enter 'B' to go back.\n";
+                continue;
+            }
+            break;
+        }
         if (contactNumber.empty())
         {
             contactNumber = loggedInGuest.getContactNumber();
         }
-        string password = InputValidator::get().getValidatedInput("Enter your password: ", "^$|^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
+        password = InputValidator::get().getValidatedInput("Enter password: ", "^$|^[a-zA-Z0-9@#$%^&+=]{6,}$", "Password must be at least 6 characters long and can include letters, numbers, and special characters.");
         if (password.empty())
         {
             password = loggedInGuest.getPassword();
         }
-
+        cout << string(50, '-') << "\n";
         cout << "\nName: " << fullName << "\n"
              << "Phone: " << contactNumber << "\n"
              << "Email: " << loggedInGuest.getEmail() << "\n"
              << "Password: " << password << "\n";
-
+        cout << string(50, '-') << "\n";
         string choice = InputValidator::get().getValidatedInput("Confirm these changes [Y/N]? ", "^[YyNn]$", "Please enter [Y/N].");
         if (choice == "N" || choice == "n")
         {
             cout << "Changes discarded.\n";
-            return;
+            return "";
         }
 
         loggedInGuest = Guest(loggedInGuest.getEmail(), password, firstName, lastName, fullName, contactNumber);
@@ -385,16 +658,44 @@ public:
                 booking = Booking(booking.getBookingID(), loggedInGuest.getEmail(), loggedInGuest.getFullName(), booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate(), booking.getTotalPrice(), booking.getPaymentMethod());
             }
         }
-        cout << "Your info has been updated successfully!\n";
+        cout << "Information has been updated successfully!\n";
+        return "";
     }
 
     void deleteGuest()
     {
-        string email = InputValidator::get().getValidatedInput("Enter the email: ", "(^[a-zA-Z0-9._%+-]+@(gmail|yahoo)\\.com$)", "Invalid email format.");
-        if (!emailExistsInFile(email))
+        string email;
+        cout << string(56, '-') << " Remove Users " << string(56, '-') << "\n";
+        if (noUsersInFile())
         {
-            cout << "Email not found!\n";
+            cout << "No users found.\n";
             return;
+        }
+        for (;;)
+        {
+            email = InputValidator::get().getValidatedInput("Enter email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+            if (email == "B" || email == "b")
+            {
+                cout << "Going back to menu...\n";
+                return;
+            }
+            if (!loadGuestEmail(email))
+            {
+                cout << "Email not found!\n";
+                continue;
+            }
+
+            cout << "\nName: " << loggedInGuest.getFullName() << "\n"
+                 << "Phone: " << loggedInGuest.getContactNumber() << "\n"
+                 << "Email: " << loggedInGuest.getEmail() << "\n"
+                 << string(50, '-') << "\n";
+            string confirmation = InputValidator::get().getValidatedInput("Are you sure you want to remove this user [Y/N]? ", "^[YyNn]$", "Please enter [Y/N].");
+            if (confirmation == "N" || confirmation == "n")
+            {
+                cout << "Let's try again." << endl;
+                continue;
+            }
+            break;
         }
         fstream file;
         vector<string> lines;
@@ -430,31 +731,24 @@ public:
 
     void viewAllUsers()
     {
-        cout << string(50, '-') << " Users " << string(50, '-') << "\n";
-        fstream file;
-        string temp;
-        file.open(USER_FILE, ios::in); // read
-        if (file.is_open())
+        cout << string(57, '-') << " View Users " << string(57, '-') << "\n";
+        if (noUsersInFile())
         {
-            getline(file, temp);
-            if (temp.empty())
-            {
-                cout << "No users found.\n";
-                file.close();
-                return;
-            }
-            file.close();
-        } // else throw (File can't be open)
-
-        cout << string(87, '-') << "\n";
+            cout << "No users found.\n";
+            return;
+        }
+        cout << string(97, '-') << "\n";
         cout << left
-             << setw(30) << "Email" << setw(35) << "Full name" << setw(22) << "Contact number" << "\n";
-        cout << string(87, '-') << "\n";
+             << setw(35) << "Email" << setw(40) << "Full name" << setw(22) << "Contact number" << "\n";
+        cout << string(97, '-') << "\n";
 
+        fstream file;
         string line;
         file.open(USER_FILE, ios::in);
         if (file.is_open())
         {
+            string adminLine;
+            getline(file, adminLine);
             while (getline(file, line))
             {
                 string token;
@@ -466,24 +760,14 @@ public:
                 }
                 if (tokens.size() == 6)
                 {
-                    cout << left << setw(30) << tokens[0] << setw(35) << tokens[4] << setw(22) << tokens[5] << "\n";
+                    cout << left << setw(35) << tokens[0] << setw(40) << tokens[4] << setw(22) << tokens[5] << "\n";
                 }
             }
             file.close();
-            cout << string(87, '-') << "\n\n";
+            cout << string(97, '-') << "\n\n";
         } // else throw (File can't be open)
-
-        string choice = InputValidator::get().getValidatedInput("Do you want to delete a user account [Y/N]? ", "^[YyNn]$", "Please enter [Y/N].");
-        if (choice == "N" || choice == "n")
-        {
-            cout << "Going back to menu...\n";
-            return;
-        }
-        else
-        {
-            deleteGuest();
-            return;
-        }
+        cout << "Press ENTER to go back to the menu..." << endl;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
     }
 
     Guest signingPage()
@@ -494,8 +778,9 @@ public:
         do
         {
             cout << string(50, '-') << " Hotel Reservation System " << string(50, '-') << "\n";
-            cout << "1. Sign In\n2. Sign Up\n3. Forgot Password\n4. Exit\n";
-            int choice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
+            cout << "1. Sign In\n2. Sign Up\n3. Forgot Password\n4. Exit\n"
+                 << string(50, '-') << "\n";
+            int choice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
             switch (choice)
             {
             case 1:
@@ -544,6 +829,11 @@ public:
         cout << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << endl;
         cout << "Room Features: " << roomFeatures << endl; // Display room features last
     }
+
+    void displayRoomDetailsTable() const
+    {
+        cout << left << setw(15) << roomNumber << setw(20) << roomType << setw(15) << capacity << setw(20) << fixed << setprecision(2) << roomPricePerNight << setw(30) << roomFeatures << endl;
+    }
 };
 
 class RoomManager
@@ -555,11 +845,6 @@ private:
     }
     RoomManager(const RoomManager &) = delete;
     RoomManager &operator=(const RoomManager &) = delete;
-
-    ~RoomManager()
-    {
-        SaveRooms();
-    }
 
     vector<Room> roomsList;
 
@@ -591,7 +876,7 @@ private:
         }
     }
 
-    void SaveRooms()
+    void saveRooms()
     {
         fstream hotel_rooms;
         hotel_rooms.open("hotel_rooms.txt", ios::out);
@@ -632,83 +917,198 @@ public:
 
     void addRoom()
     {
-        string roomNumber;
+        string roomNumber, roomType, roomFeatures, choice;
+        int capacity;
+        double roomPricePerNight;
         bool roomExists = true;
-        while (roomExists)
-        {
-            roomNumber = InputValidator::get().getValidatedInput("Enter room number: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
-            roomExists = findRoom(roomNumber) != roomsList.end();
-            if (roomExists)
-            {
-                cout << "Room number already exists. Please enter a different room number." << endl;
-            }
-        }
-        string roomType = InputValidator::get().getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
-        int capacity = stoi(InputValidator::get().getValidatedInput("Enter room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer."));
-        string roomFeatures = InputValidator::get().getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
-        double roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
 
+        cout << string(58, '-') << " Add Room " << string(58, '-') << "\n";
+        do
+        {
+            while (roomExists)
+            {
+                roomNumber = InputValidator::get().getValidatedInput("Enter room number ('B' to go back): ", "^(\\d{3}|[bB])$", "Invalid room number format. Room number must be 3 digits or 'B' to go back.");
+
+                if (roomNumber == "B" || roomNumber == "b")
+                {
+                    cout << "Going back to menu..." << endl;
+                    return;
+                }
+
+                roomExists = findRoom(roomNumber) != roomsList.end();
+                if (roomExists)
+                {
+                    cout << "Room number already exists. Please enter a different room number." << endl;
+                }
+            }
+            roomType = InputValidator::get().getValidatedInput("Enter room type: ", "^.+$", "Invalid room type format.");
+            capacity = stoi(InputValidator::get().getValidatedInput("Enter room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer."));
+            roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+            roomFeatures = InputValidator::get().getValidatedInput("Enter room features: ", "^.+$", "Invalid room features format.");
+
+            cout << string(50, '-') << "\n\n"
+                 << "Room Number: " << roomNumber << "\n"
+                 << "Room Type: " << roomType << "\n"
+                 << "Capacity: " << capacity << " person(s)" << "\n"
+                 << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << "\n"
+                 << "Room Features: " << roomFeatures << "\n";
+            cout << string(50, '-') << "\n";
+            choice = InputValidator::get().getValidatedInput("Confirm these details [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
+        } while (choice == "N" | choice == "n");
         roomsList.push_back(Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight));
+        saveRooms();
+        cout << "Room added successfully!" << endl;
     }
 
     void displayRooms()
     {
-        cout << string(50, '-') << " Available Rooms " << string(50, '-') << "\n";
+        cout << string(57, '-') << " View Rooms " << string(57, '-') << "\n";
+        if (roomsList.empty())
+        {
+            cout << "No rooms available." << endl;
+            return;
+        }
+        cout << string(126, '-') << "\n";
+        cout << left << setw(15) << "Room Number" << setw(20) << "Room Type" << setw(15) << "Capacity" << setw(20) << "Price per Night" << setw(30) << "Room Features" << endl;
+        cout << string(126, '-') << "\n";
+
         for (const auto &room : roomsList)
         {
-            room.displayRoomDetails();
-            cout << string(50, '-') << endl;
+            room.displayRoomDetailsTable();
         }
+        cout << string(126, '-') << "\n";
+        cout << "\nPress ENTER to go back to the menu..." << endl;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
     }
 
-    void updateRoom()
+    void editRoom()
     {
-        string roomNumber = InputValidator::get().getValidatedInput("Enter room number to update: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
-        auto it = findRoom(roomNumber);
-
-        if (it == roomsList.end())
+        string roomNumber, roomType, roomFeatures, choice;
+        int capacity;
+        double roomPricePerNight;
+        auto it = roomsList.end();
+        cout << string(57, '-') << " Edit Room " << string(57, '-') << "\n";
+        for (;;)
         {
-            cout << "Room not found." << endl;
+            roomNumber = InputValidator::get().getValidatedInput("Enter room number to update ('B' to go back): ", "^(\\d{3}|[bB])$", "Invalid room number format. Room number must be 3 digits.");
+
+            if (roomNumber == "B" || roomNumber == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
+
+            it = findRoom(roomNumber);
+
+            if (it == roomsList.end())
+            {
+                cout << "Room not found." << endl;
+                continue;
+            }
+
+            cout << string(50, '-') << "\n";
+            it->displayRoomDetails();
+            cout << string(50, '-') << endl;
+            string confirm = InputValidator::get().getValidatedInput("Is this the correct Room? [Y/N]: ", "^[YyNn]$", "Please enter [Y/N].");
+
+            if (confirm == "N" || confirm == "n")
+            {
+                cout << "Let's try again.\n";
+                continue;
+            }
+
+            break;
+        }
+
+        cout << "\nEdit Booking Details\nNote: Leave the field blank and press ENTER to keep its current value.\n";
+        cout << string(57, '-') << endl;
+
+        roomType = InputValidator::get().getValidatedInput("Enter new room type: ", "^$|^.+$", "Invalid room type format.");
+        if (roomType.empty())
+        {
+            roomType = it->getRoomType();
+        }
+        try
+        {
+            capacity = stoi(InputValidator::get().getValidatedInput("Enter new room capacity: ", "^$|^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
+        }
+        catch (const invalid_argument &e)
+        {
+            capacity = it->getCapacity(); // If invalid, keep the old capacity
+        }
+        try
+        {
+            roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter new price per night: ", "^$|^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
+        }
+        catch (const invalid_argument &e)
+        {
+            roomPricePerNight = it->getRoomPricePerNight(); // If invalid, keep the old price
+        }
+        roomFeatures = InputValidator::get().getValidatedInput("Enter new room features: ", "^$|^.+$", "Invalid room features format.");
+        if (roomFeatures.empty())
+        {
+            roomFeatures = it->getRoomFeatures();
+        }
+        cout << string(50, '-') << "\n\n"
+             << "Room Number: " << roomNumber << "\n"
+             << "Room Type: " << roomType << "\n"
+             << "Capacity: " << capacity << " person(s)" << "\n"
+             << "Price per Night: $" << fixed << setprecision(2) << roomPricePerNight << "\n"
+             << "Room Features: " << roomFeatures << "\n";
+        cout << string(50, '-') << "\n";
+        choice = InputValidator::get().getValidatedInput("Confirm these details [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
+
+        if (choice == "N" || choice == "n")
+        {
+            cout << "Changes discarded.\n";
             return;
         }
 
-        cout << "Updating room details for room number: " << roomNumber << endl;
-        cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
-        it->displayRoomDetails();
-        cout << string(50, '-') << endl;
-        string roomType = InputValidator::get().getValidatedInput("Enter new room type: ", "^.+$", "Invalid room type format.");
-        int capacity = stoi(InputValidator::get().getValidatedInput("Enter new room capacity: ", "^\\d+$", "Invalid capacity format. Capacity must be a positive integer.")); // Input capacity after room type
-        string roomFeatures = InputValidator::get().getValidatedInput("Enter new room features: ", "^.+$", "Invalid room features format.");
-        double roomPricePerNight = stod(InputValidator::get().getValidatedInput("Enter new price per night: ", "^\\d+\\.\\d{2}$", "Invalid price format. Price must be a number with two decimal places."));
-
         *it = Room(roomNumber, roomType, capacity, roomFeatures, roomPricePerNight);
+        saveRooms();
+        cout << string(50, '-') << "\n";
+        cout << "Room details updated successfully!" << endl;
     }
 
     void deleteRoom()
     {
-        string roomNumber = InputValidator::get().getValidatedInput("Enter room number to remove: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
-        auto it = findRoom(roomNumber);
-
-        if (it == roomsList.end())
+        cout << string(56, '-') << " Remove Room " << string(56, '-') << "\n";
+        bool removing = true;
+        while (removing)
         {
-            cout << "Room not found." << endl;
-            return;
+            string roomNumber = InputValidator::get().getValidatedInput("Enter room number to remove ('B' to go back): ", "^(\\d{3}|[bB])$", "Invalid room number format. Room number must be 3 digits.");
+
+            if (roomNumber == "B" || roomNumber == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
+
+            auto it = findRoom(roomNumber);
+
+            if (it == roomsList.end())
+            {
+                cout << "Room not found." << endl;
+                continue;
+            }
+
+            cout << string(50, '-') << "\n";
+            it->displayRoomDetails();
+            cout << string(50, '-') << endl;
+            string confirmation = InputValidator::get().getValidatedInput("Are you sure you want to remove this room [Y/N]? ", "^[YyNn]$", "Please enter [Y/N].");
+
+            if (confirmation == "N" || confirmation == "n")
+            {
+                cout << "Let's try again." << endl;
+                cout << string(50, '-') << "\n";
+                continue;
+            }
+
+            roomsList.erase(it);
+            saveRooms();
+            cout << "Room removed successfully." << endl;
+            removing = false;
         }
-
-        cout << "Removing room number: " << roomNumber << endl;
-        cout << string(50, '-') << " Room Details " << string(50, '-') << "\n";
-        it->displayRoomDetails();
-        cout << string(50, '-') << endl;
-        string confirmation = InputValidator::get().getValidatedInput("Are you sure you want to delete this room? (y/n): ", "^(y|n)$", "Invalid input. Please enter 'y' or 'n'.");
-
-        if (confirmation == "n")
-        {
-            cout << "Room removal cancelled." << endl;
-            return;
-        }
-
-        roomsList.erase(it);
-        cout << "Room successfully removed." << endl;
     }
 };
 
@@ -723,7 +1123,7 @@ class CashPayment : public PaymentStrategy
 public:
     void processPayment(const double &amount) override
     {
-        cout << "You selected cash payment" << endl;
+        cout << "You selected cash payment." << endl;
         cout << string(50, '-') << endl;
         cout << "Please pay the total amount of $" << fixed << setprecision(2) << amount << " at the hotel front desk.\nupon check-in. Keep your booking ID for reference." << endl;
     }
@@ -734,7 +1134,7 @@ class GcashPayment : public PaymentStrategy
 public:
     void processPayment(const double &amount) override
     {
-        cout << "You selected Gcash payment" << endl;
+        cout << "You selected Gcash payment." << endl;
         cout << string(50, '-') << endl;
         cout << "Gcash Number: 0912-345-6789" << endl;
         cout << "Account Name: DLSL Hotel" << endl;
@@ -750,11 +1150,12 @@ public:
     {
         cout << "You selected card payment." << endl;
         cout << string(50, '-') << endl;
-        string cardNumber = InputValidator::get().getValidatedInput("Enter your card number: ", "^\\d{4}-\\d{4}-\\d{4}-\\d{4}$", "Invalid card number format. Must be in the format XXXX-XXXX-XXXX-XXXX.");
-        string expirationDate = InputValidator::get().getValidatedInput("Enter your card expiration date: ", "^(0[1-9]|1[0-2])/(2[5-9]|[3-9][0-9])$", "Invalid expiration date format. Year must be 25 or above and in the format MM/YY.");
-        string cvv = InputValidator::get().getValidatedInput("Enter your card CVV: ", "^\\d{3}$", "Invalid CVV format. Must be 3 digits.");
+        string cardNumber = InputValidator::get().getValidatedInput("Enter your card number (XXXX-XXXX-XXXX-XXXX): ", "^\\d{4}-\\d{4}-\\d{4}-\\d{4}$", "Invalid card number format. Must be in the format XXXX-XXXX-XXXX-XXXX.");
+        string expirationDate = InputValidator::get().getValidatedInput("Enter your card expiration date (MM/YY): ", "^(0[5-9]|1[0-2])/(2[5-9]|[3-9][0-9])$", "Invalid expiration date format. Must be a valid future date and the format MM/YY.");
+        string cvv = InputValidator::get().getValidatedInput("Enter your card CVV (XXX): ", "^\\d{3}$", "Invalid CVV format. Must be 3 digits.");
         string cardName = InputValidator::get().getValidatedInput("Enter your card name: ", "^.+$", "Invalid card name format.");
 
+        cout << string(50, '-') << "\n";
         cout << "\nProcessing payment of $" << fixed << setprecision(2) << amount << endl;
         cout << "Payment successful!" << endl;
     }
@@ -857,7 +1258,7 @@ private:
         }
     }
 
-    void SaveBookings()
+    void saveBookings()
     {
         fstream hotel_bookings;
         hotel_bookings.open("hotel_bookings.txt", ios::out);
@@ -903,6 +1304,13 @@ private:
     bool isFutureDate(const string &date)
     {
         time_t now = time(0);
+        tm *now_tm = localtime(&now);
+        tm today = *now_tm;
+        today.tm_hour = 0;
+        today.tm_min = 0;
+        today.tm_sec = 0;
+        time_t today_time = mktime(&today);
+
         int year, month, day;
         sscanf(date.c_str(), "%d-%d-%d", &year, &month, &day);
         tm inputDate = {};
@@ -910,7 +1318,14 @@ private:
         inputDate.tm_mon = month - 1;
         inputDate.tm_mday = day;
         time_t inputTime = mktime(&inputDate);
-        return difftime(inputTime, now) > 0;
+
+        // Calculate the date 1 year from today
+        tm oneYearLater = today;
+        oneYearLater.tm_year += 1;
+        time_t oneYearLater_time = mktime(&oneYearLater);
+
+        // Date must be today or later, but not more than 1 year in advance
+        return difftime(inputTime, today_time) >= 0 && difftime(inputTime, oneYearLater_time) <= 0;
     }
 
     int calculateDaysDifference(const string &checkInDate, const string &checkOutDate)
@@ -933,10 +1348,8 @@ private:
     }
 
     // Helper: Check if a room is available for a date range and number of people, optionally skipping a booking ID
-    bool isRoomAvailable(const Room &room, const string &checkInDate, const string &checkOutDate, int numberOfPeople, const string &skipBookingId = "")
+    bool isRoomAvailable(const Room &room, const string &checkInDate, const string &checkOutDate, const string &skipBookingId = "")
     {
-        if (room.getCapacity() < numberOfPeople)
-            return false;
         for (const auto &booking : bookingsList)
         {
             if (!skipBookingId.empty() && booking.getBookingID() == skipBookingId)
@@ -952,18 +1365,29 @@ private:
         return true;
     }
 
-    // Optimized: Get available rooms for a date range and number of people, optionally skipping a booking ID
-    vector<Room> getAvailableRooms(const string &checkInDate, const string &checkOutDate, int numberOfPeople, const string &skipBookingId = "")
+    // Optimized: Get available rooms for a date range, optionally skipping a booking ID
+    vector<Room> getAvailableRoomsByDateRange(const string &checkInDate, const string &checkOutDate, const string &skipBookingId = "")
     {
         vector<Room> availableRooms;
         const auto &rooms = RoomManager::get().getRoomsList();
         availableRooms.reserve(rooms.size());
         for (const auto &room : rooms)
         {
-            if (isRoomAvailable(room, checkInDate, checkOutDate, numberOfPeople, skipBookingId))
+            if (isRoomAvailable(room, checkInDate, checkOutDate, skipBookingId))
                 availableRooms.push_back(room);
         }
         return availableRooms;
+    }
+
+    vector<Room> getAvailableRoomsByNumberOfPeople(int numberOfPeople, vector<Room> &availableRooms)
+    {
+        vector<Room> filteredRooms;
+        for (const auto &room : availableRooms)
+        {
+            if (room.getCapacity() >= numberOfPeople)
+                filteredRooms.push_back(room);
+        }
+        return filteredRooms;
     }
 
 public:
@@ -973,12 +1397,6 @@ public:
         loadBookings();
     }
 
-    ~BookingManager()
-    {
-        saveBookingIdCounter();
-        SaveBookings();
-    }
-
     auto &getBookingsList()
     {
         return bookingsList;
@@ -986,11 +1404,18 @@ public:
 
     void addBookingAdmin()
     {
-        cout << string(50, '-') << " Find a Guest " << string(50, '-') << "\n";
+        cout << string(56, '-') << " Add Booking " << string(56, '-') << "\n";
 
-        while (true)
+        bool findingGuest = true;
+        while (findingGuest)
         {
-            string guestEmail = InputValidator::get().getValidatedInput("Enter guest email: ", EMAIL_REGEX, "Invalid email format.");
+            string guestEmail = InputValidator::get().getValidatedInput("Enter guest email ('B' to go back): ", EMAIL_B_REGEX, "Invalid email format. Enter a valid email or 'B' to go back.");
+
+            if (guestEmail == "B" || guestEmail == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
 
             fstream hotel_users;
             hotel_users.open("hotel_users.txt", ios::in);
@@ -1013,7 +1438,7 @@ public:
 
                     if (guestEmail == email)
                     {
-                        cout << string(25, '-') << " Guest Found " << string(25, '-') << "\n";
+                        cout << string(50, '-') << "\n\n";
                         cout << "Email: " << email << endl;
                         cout << "Full Name: " << fullName << endl;
                         cout << "Contact Number: " << contactNumber << endl;
@@ -1028,15 +1453,17 @@ public:
 
             if (found)
             {
+                cout << string(50, '-') << "\n";
                 string confirm = InputValidator::get().getValidatedInput("Is this the correct guest? [Y/N]: ", "^[YyNn]$", "Please enter [Y/N].");
                 if (confirm == "Y" || confirm == "y")
                 {
                     addBookingGuest(foundGuest);
-                    break;
+                    findingGuest = false;
                 }
                 else
                 {
-                    cout << "Let's try again.\n";
+                    cout << "Let's try again.\n"
+                         << string(50, '-') << "\n";
                 }
             }
             else
@@ -1048,45 +1475,58 @@ public:
 
     void addBookingGuest(const Guest &guest)
     {
-        cout << string(50, '-') << " Make a Booking " << string(50, '-') << "\n";
+        cout << string(55, '-') << " Make a Booking " << string(55, '-') << "\n";
         string checkInDate, checkOutDate;
         int numberOfPeople;
-        vector<Room> availableRooms;
+        string numberOfPeopleStr;
+        vector<Room> availableRoomsByDateRange;
+        vector<Room> availableRoomsByDateRangeAndNumberOfPeople;
 
-        while (true)
+        bool bookingLoop = true;
+        while (bookingLoop)
         {
             // Input and validate dates
-            while (true)
+            bool validDates = false;
+            while (!validDates)
             {
-                checkInDate = InputValidator::get().getValidatedInput("Enter check-in date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+                checkInDate = InputValidator::get().getValidatedInput("Enter check-in date (YYYY-MM-DD or 'B' to go back): ", "^(\\d{4}-\\d{2}-\\d{2}|[bB])$", "Invalid date format. Use YYYY-MM-DD.");
+                if (checkInDate == "B" || checkInDate == "b")
+                {
+                    cout << "Going back to menu..." << endl;
+                    return;
+                }
                 if (isValidDate(checkInDate) && isFutureDate(checkInDate))
-                    break;
-                cout << "Check-in date must be a valid future date." << endl;
+                    validDates = true;
+                else
+                    cout << "Check-in date must be a valid present or future date (up to 1 year from today)." << endl;
             }
-            while (true)
+            validDates = false;
+            while (!validDates)
             {
                 checkOutDate = InputValidator::get().getValidatedInput("Enter check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
-                if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
-                    break;
-                cout << "Check-out date must be a valid date later than the check-in date." << endl;
+                if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate >= checkInDate)
+                    validDates = true;
+                else
+                    cout << "Check-out date must be a valid date on or after the check-in date (up to 1 year from today)." << endl;
             }
-            numberOfPeople = stoi(InputValidator::get().getValidatedInput("Enter number of people: ", "^[1-9]\\d*$", "Invalid number of people. Must be a positive integer."));
-
-            availableRooms = getAvailableRooms(checkInDate, checkOutDate, numberOfPeople);
-            if (availableRooms.empty())
+            availableRoomsByDateRange = getAvailableRoomsByDateRange(checkInDate, checkOutDate);
+            if (availableRoomsByDateRange.empty())
             {
-                cout << "No available rooms for the specified date range and number of people." << endl;
+                cout << "No available rooms for the specified date range." << endl;
                 continue;
             }
-            break;
+            cout << string(50, '-') << "\n";
+            bookingLoop = false;
         }
-        cout << string(90, '-') << endl;
+        cout << "\nAvailable Rooms by DATE RANGE...\n"
+             << string(126, '-') << endl;
         cout << left << setw(15) << "Room Number"
              << setw(20) << "Room Type"
              << setw(10) << "Capacity"
              << setw(15) << "Price/Night"
              << setw(20) << "Features" << endl;
-        for (const auto &room : availableRooms)
+        cout << string(126, '-') << endl;
+        for (const auto &room : availableRoomsByDateRange)
         {
             cout << left << setw(15) << room.getRoomNumber()
                  << setw(20) << room.getRoomType()
@@ -1094,16 +1534,55 @@ public:
                  << setw(15) << fixed << setprecision(2) << room.getRoomPricePerNight()
                  << setw(20) << room.getRoomFeatures() << endl;
         }
-        while (true)
+        cout << string(126, '-') << endl;
+
+        bookingLoop = true;
+        while (bookingLoop)
+        {
+            numberOfPeopleStr = InputValidator::get().getValidatedInput("Enter number of people ('B' to go back): ", "^([1-9]\\d*|[bB])$", "Invalid number of people. Must be a positive integer.");
+            if (numberOfPeopleStr == "B" || numberOfPeopleStr == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
+            numberOfPeople = stoi(numberOfPeopleStr);
+            availableRoomsByDateRangeAndNumberOfPeople = getAvailableRoomsByNumberOfPeople(numberOfPeople, availableRoomsByDateRange);
+            if (availableRoomsByDateRangeAndNumberOfPeople.empty())
+            {
+                cout << "No available rooms for the specified number of people." << endl;
+                continue;
+            }
+            cout << string(50, '-') << "\n";
+            bookingLoop = false;
+        }
+        cout << "\nAvailable rooms by DATE RANGE and NUMBER OF PEOPLE....\n"
+             << string(126, '-') << endl;
+        cout << left << setw(15) << "Room Number"
+             << setw(20) << "Room Type"
+             << setw(10) << "Capacity"
+             << setw(15) << "Price/Night"
+             << setw(20) << "Features" << endl;
+        cout << string(126, '-') << endl;
+        for (const auto &room : availableRoomsByDateRangeAndNumberOfPeople)
+        {
+            cout << left << setw(15) << room.getRoomNumber()
+                 << setw(20) << room.getRoomType()
+                 << setw(10) << room.getCapacity()
+                 << setw(15) << fixed << setprecision(2) << room.getRoomPricePerNight()
+                 << setw(20) << room.getRoomFeatures() << endl;
+        }
+        cout << string(126, '-') << endl;
+        bool selectingRoom = true;
+        while (selectingRoom)
         {
             string roomNumber = InputValidator::get().getValidatedInput("Enter the room number to book: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
-            auto it = find_if(availableRooms.begin(), availableRooms.end(),
+            auto it = find_if(availableRoomsByDateRangeAndNumberOfPeople.begin(), availableRoomsByDateRangeAndNumberOfPeople.end(),
                               [&roomNumber](const Room &room)
                               {
                                   return room.getRoomNumber() == roomNumber;
                               });
 
-            if (it == availableRooms.end())
+            if (it == availableRoomsByDateRangeAndNumberOfPeople.end())
             {
                 cout << "Invalid room selection. Room number not found in available rooms." << endl;
                 continue;
@@ -1113,9 +1592,11 @@ public:
             double totalPrice = selectedRoom.getRoomPricePerNight() * calculateDaysDifference(checkInDate, checkOutDate);
             string bookingID = to_string(bookingIdCounter++);
 
-            cout << "Choose payment method:\n";
+            cout << "\nChoose payment method:\n";
             cout << "1. Cash\n2. Gcash\n3. Credit/Debit Card\n4. Bank Transfer\n";
-            int paymentChoice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
+            cout << string(50, '-') << "\n";
+            int paymentChoice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
+            cout << "\n";
             string paymentMethod;
             PaymentContext paymentContext;
             switch (paymentChoice)
@@ -1141,42 +1622,106 @@ public:
                 paymentMethod = "Bank Transfer";
                 break;
             }
-            bookingsList.push_back(Booking(bookingID, guest.getEmail(), guest.getFullName(), selectedRoom.getRoomNumber(), checkInDate, checkOutDate, totalPrice, paymentMethod));
+            cout << string(50, '-') << "\n"
+                 << "BOOKING DETAILS\n"
+                 << "Booking ID: " << bookingID << "\n";
+            selectedRoom.displayRoomDetails();
+            cout << string(50, '-') << "\n";
+            string choice = InputValidator::get().getValidatedInput("Confirm this booking [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
 
-            cout << "\nBooking successful! (ID: " << bookingID << ")" << endl;
-            break;
+            if (choice == "N" || choice == "n")
+            {
+                cout << "Booking cancelled.\n";
+                return;
+            }
+            bookingsList.push_back(Booking(bookingID, guest.getEmail(), guest.getFullName(), selectedRoom.getRoomNumber(), checkInDate, checkOutDate, totalPrice, paymentMethod));
+            saveBookings();
+            saveBookingIdCounter();
+            cout << "Booking successful!" << endl;
+            selectingRoom = false;
         }
     }
 
     void displayBookingsAdmin()
     {
-        cout << string(50, '-') << " Bookings List " << string(50, '-') << "\n";
+        cout << string(55, '-') << " View Bookings " << string(55, '-') << "\n";
+        if (bookingsList.empty())
+        {
+            cout << "No bookings found." << endl;
+            return;
+        }
+        cout << string(160, '-') << "\n";
+        cout << left << setw(15) << "Booking ID"
+             << setw(35) << "Guest Email"
+             << setw(40) << "Guest Name"
+             << setw(15) << "Room Number"
+             << setw(17) << "Check-in Date"
+             << setw(18) << "Check-out Date"
+             << setw(15) << "Total Price"
+             << setw(20) << "Payment Method" << endl;
+        cout << string(160, '-') << "\n";
+
         for (const auto &booking : bookingsList)
         {
-            booking.displayBookingDetailsAdmin();
-            cout << string(50, '-') << endl;
+            booking.displayBookingDetailsAdminTable();
         }
+        cout << string(160, '-') << "\n";
+
+        cout << "\nPress ENTER to go back to the menu..." << endl;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
     }
 
     void displayBookingsGuest(const Guest &guest)
     {
-        cout << string(50, '-') << " Your Bookings " << string(50, '-') << "\n";
+        cout << string(54, '-') << " View My Bookings " << string(54, '-') << "\n";
+        bool found = false;
         for (const auto &booking : bookingsList)
         {
             if (booking.getGuestEmail() == guest.getEmail())
             {
-                booking.displayBookingDetailsGuest();
-                cout << string(50, '-') << endl;
+                found = true;
             }
         }
+        if (!found)
+        {
+            cout << "You have no bookings.\n";
+            return;
+        }
+        cout << string(100, '-') << "\n";
+        cout << left << setw(15) << "Booking ID"
+             << setw(15) << "Room Number"
+             << setw(17) << "Check-in Date"
+             << setw(18) << "Check-out Date"
+             << setw(15) << "Total Price"
+             << setw(20) << "Payment Method" << endl;
+        cout << string(100, '-') << "\n";
+        for (const auto &booking : bookingsList)
+        {
+            if (booking.getGuestEmail() == guest.getEmail())
+            {
+                booking.displayBookingDetailsGuestTable();
+            }
+        }
+        cout << string(100, '-') << "\n";
+
+        cout << "\nPress ENTER to go back to the menu..." << endl;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
     }
 
     void editBooking()
     {
-        cout << string(50, '-') << " Edit Booking " << string(50, '-') << "\n";
-        while (true)
+        cout << string(56, '-') << " Edit Booking " << string(56, '-') << "\n";
+        bool editing = true;
+        while (editing)
         {
-            string bookingID = InputValidator::get().getValidatedInput("Enter booking ID to edit: ", "^\\d+$", "Invalid booking ID format. Booking ID must be a number.");
+            string bookingID = InputValidator::get().getValidatedInput("Enter booking ID to edit ('B' to go back): ", "^(\\d+|[bB])$", "Invalid booking ID format. Booking ID must be a number.");
+
+            if (bookingID == "B" || bookingID == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
+
             auto booking_it = find_if(bookingsList.begin(), bookingsList.end(),
                                       [&bookingID](const Booking &booking)
                                       {
@@ -1189,9 +1734,9 @@ public:
                 continue;
             }
 
-            cout << string(25, '-') << " Booking found " << string(25, '-') << endl;
+            cout << string(55, '-') << "\n";
             booking_it->displayBookingDetailsAdmin();
-            cout << string(50, '-') << endl;
+            cout << string(65, '-') << endl;
             string confirm = InputValidator::get().getValidatedInput("Is this the correct booking? [Y/N]: ", "^[YyNn]$", "Please enter [Y/N].");
 
             if (confirm == "N" || confirm == "n")
@@ -1200,43 +1745,72 @@ public:
                 continue;
             }
 
-            vector<Room> availableRooms;
+            vector<Room> availableRoomsByDateRange;
+            vector<Room> availableRoomsByDateRangeAndNumberOfPeople;
             string checkInDate, checkOutDate;
             int numberOfPeople;
-            while (true)
+            string numberOfPeopleStr;
+
+            cout << "\nEdit Booking Details\nNote: Leave the field blank and press ENTER to keep its current value.\n";
+
+            bool validEdit = true;
+            while (validEdit)
             {
-                while (true)
+                cout << string(50, '-') << "\n";
+                bool validDates = false;
+                while (!validDates)
                 {
-                    checkInDate = InputValidator::get().getValidatedInput("Enter new check-in date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
-                    if (isValidDate(checkInDate) && isFutureDate(checkInDate))
-                        break;
-                    cout << "Check-in date must be a valid future date." << endl;
+                    checkInDate = InputValidator::get().getValidatedInput("Enter new check-in date (YYYY-MM-DD): ", "^$|^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD or leave blank to keep current.");
+                    if (checkInDate.empty())
+                    {
+                        checkInDate = booking_it->getCheckInDate();
+                        validDates = true;
+                    }
+                    else if (isValidDate(checkInDate) && isFutureDate(checkInDate))
+                    {
+                        validDates = true;
+                    }
+                    else
+                    {
+                        cout << "Check-in date must be a valid present or future date (up to 1 year from today)." << endl;
+                    }
                 }
-                while (true)
+                validDates = false;
+                while (!validDates)
                 {
-                    checkOutDate = InputValidator::get().getValidatedInput("Enter new check-out date (YYYY-MM-DD): ", "^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
-                    if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
-                        break;
-                    cout << "Check-out date must be a valid date later than the check-in date." << endl;
+                    checkOutDate = InputValidator::get().getValidatedInput("Enter new check-out date (YYYY-MM-DD): ", "^$|^(\\d{4}-\\d{2}-\\d{2})$", "Invalid date format. Use YYYY-MM-DD.");
+                    if (checkOutDate.empty())
+                    {
+                        checkOutDate = booking_it->getCheckOutDate();
+                        validDates = true;
+                    }
+                    else if (isValidDate(checkOutDate) && isFutureDate(checkOutDate) && checkOutDate > checkInDate)
+                    {
+                        validDates = true;
+                    }
+                    else
+                    {
+                        cout << "Check-out date must be a valid date on or after the check-in date (up to 1 year from today)." << endl;
+                    }
                 }
-                string numberOfPeopleStr = InputValidator::get().getValidatedInput("Enter new number of people: ", "^[1-9]\\d*$", "Invalid number of people. Must be a positive integer.");
-                numberOfPeople = stoi(numberOfPeopleStr);
-
-                availableRooms = getAvailableRooms(checkInDate, checkOutDate, numberOfPeople, bookingID);
-
-                if (availableRooms.empty())
+                availableRoomsByDateRange = getAvailableRoomsByDateRange(checkInDate, checkOutDate, booking_it->getBookingID());
+                if (availableRoomsByDateRange.empty())
                 {
-                    cout << "No available rooms for the specified date range and number of people." << endl;
+                    cout << "No available rooms for the specified date range." << endl;
                     continue;
                 }
-                break;
+                cout << string(50, '-') << "\n";
+                validEdit = false;
             }
+            cout << "\nAvailable Rooms by DATE RANGE...\n"
+                 << string(126, '-') << endl;
             cout << left << setw(15) << "Room Number"
                  << setw(20) << "Room Type"
                  << setw(10) << "Capacity"
                  << setw(15) << "Price/Night"
                  << setw(20) << "Features" << endl;
-            for (const auto &room : availableRooms)
+            cout << string(126, '-') << endl;
+            for (const auto &room : availableRoomsByDateRange)
             {
                 cout << left << setw(15) << room.getRoomNumber()
                      << setw(20) << room.getRoomType()
@@ -1244,15 +1818,53 @@ public:
                      << setw(15) << fixed << setprecision(2) << room.getRoomPricePerNight()
                      << setw(20) << room.getRoomFeatures() << endl;
             }
-            while (true)
+            cout << string(126, '-') << endl;
+            validEdit = true;
+            while (validEdit)
+            {
+                numberOfPeopleStr = InputValidator::get().getValidatedInput("Enter new number of people ('B' to go back): ", "^([1-9]\\d*|[bB])$", "Invalid number of people. Must be a positive integer.");
+                if (numberOfPeopleStr == "B" || numberOfPeopleStr == "b")
+                {
+                    cout << "Going back to menu..." << endl;
+                    return;
+                }
+                numberOfPeople = stoi(numberOfPeopleStr);
+                availableRoomsByDateRangeAndNumberOfPeople = getAvailableRoomsByNumberOfPeople(numberOfPeople, availableRoomsByDateRange);
+                if (availableRoomsByDateRangeAndNumberOfPeople.empty())
+                {
+                    cout << "No available rooms for the specified number of people." << endl;
+                    continue;
+                }
+                cout << string(50, '-') << "\n";
+                validEdit = false;
+            }
+            cout << "\nAvailable rooms by DATE RANGE and NUMBER OF PEOPLE....\n"
+                 << string(126, '-') << endl;
+            cout << left << setw(15) << "Room Number"
+                 << setw(20) << "Room Type"
+                 << setw(10) << "Capacity"
+                 << setw(15) << "Price/Night"
+                 << setw(20) << "Features" << "\n"
+                 << string(126, '-') << "\n";
+            for (const auto &room : availableRoomsByDateRangeAndNumberOfPeople)
+            {
+                cout << left << setw(15) << room.getRoomNumber()
+                     << setw(20) << room.getRoomType()
+                     << setw(10) << room.getCapacity()
+                     << setw(15) << fixed << setprecision(2) << room.getRoomPricePerNight()
+                     << setw(20) << room.getRoomFeatures() << endl;
+            }
+            cout << string(126, '-') << endl;
+            bool selectingRoom = true;
+            while (selectingRoom)
             {
                 string roomNumber = InputValidator::get().getValidatedInput("Enter the new room number to book: ", "^\\d{3}$", "Invalid room number format. Room number must be 3 digits.");
-                auto it = find_if(availableRooms.begin(), availableRooms.end(),
+                auto it = find_if(availableRoomsByDateRangeAndNumberOfPeople.begin(), availableRoomsByDateRangeAndNumberOfPeople.end(),
                                   [&roomNumber](const Room &room)
                                   {
                                       return room.getRoomNumber() == roomNumber;
                                   });
-                if (it == availableRooms.end())
+                if (it == availableRoomsByDateRangeAndNumberOfPeople.end())
                 {
                     cout << "Invalid room selection. Room number not found in available rooms." << endl;
                     continue;
@@ -1260,13 +1872,73 @@ public:
                 Room selectedRoom = *it;
                 double totalPrice = selectedRoom.getRoomPricePerNight() * calculateDaysDifference(checkInDate, checkOutDate);
 
+                cout << string(50, '-') << "\n\n";
+                selectedRoom.displayRoomDetails();
+                cout << string(50, '-') << "\n\n";
+
+                string choice = InputValidator::get().getValidatedInput("Confirm these details [Y|N]? ", "^[YyNn]$", "Please enter [Y/N].");
+
+                if (choice == "N" || choice == "n")
+                {
+                    cout << "Changes discarded.\n";
+                    return;
+                }
+
                 booking_it->setCheckInDate(checkInDate);
                 booking_it->setCheckOutDate(checkOutDate);
                 booking_it->setRoomNumber(selectedRoom.getRoomNumber());
                 booking_it->setTotalPrice(totalPrice);
-                break;
+
+                saveBookings();
+                cout << "Booking updated successfully!" << endl;
+                selectingRoom = false;
             }
-            break;
+            editing = false;
+        }
+    }
+
+    void
+    deleteBooking()
+    {
+        cout << string(55, '-') << " Remove Booking " << string(55, '-') << "\n";
+        bool removing = true;
+        while (removing)
+        {
+            string bookingID = InputValidator::get().getValidatedInput("Enter booking ID to remove ('B' to go back): ", "^(\\d+|[bB])$", "Invalid booking ID format. Booking ID must be a number.");
+
+            if (bookingID == "B" || bookingID == "b")
+            {
+                cout << "Going back to menu..." << endl;
+                return;
+            }
+
+            auto booking_it = find_if(bookingsList.begin(), bookingsList.end(),
+                                      [&bookingID](const Booking &booking)
+                                      {
+                                          return booking.getBookingID() == bookingID;
+                                      });
+
+            if (booking_it == bookingsList.end())
+            {
+                cout << "Booking not found." << endl;
+                continue;
+            }
+
+            cout << string(50, '-') << endl;
+            booking_it->displayBookingDetailsAdmin();
+            cout << string(50, '-') << endl;
+            string confirm = InputValidator::get().getValidatedInput("Are you sure you want to remove this booking? [Y/N]: ", "^[YyNn]$", "Please enter [Y/N].");
+
+            if (confirm == "N" || confirm == "n")
+            {
+                cout << "Let's try again.\n";
+                continue;
+            }
+
+            bookingsList.erase(booking_it);
+            saveBookings();
+            cout << "Booking successfully removed." << endl;
+            removing = false;
         }
     }
 };
@@ -1275,7 +1947,8 @@ int main()
 {
     GuestManager guestManager;
     BookingManager bookingManager;
-    while (true)
+    bool menuRunning = true;
+    while (menuRunning)
     {
         Guest loggedInGuest = guestManager.signingPage();
 
@@ -1289,28 +1962,30 @@ int main()
             int choice;
             do
             {
-                cout << string(50, '-') << " Admin Menu " << string(50, '-') << "\n";
-                cout << "1. Manage Users\n2. Manage Rooms\n3. Manage Bookings\n4. Logout\n";
-                choice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
+                cout << string(57, '-') << " Admin Menu " << string(57, '-') << "\n";
+                cout << "1. Manage Users\n2. Manage Rooms\n3. Manage Bookings\n4. Logout\n"
+                     << string(50, '-') << "\n";
+                choice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
                 switch (choice)
                 {
                 case 1:
                     int adminUserChoice;
                     do
                     {
-                        cout << string(50, '-') << " Manage Users " << string(50, '-') << "\n";
-                        cout << "1. Add Users\n2. View Users\n3. Update Users\n4. Remove Users\n5. Back to Admin Menu" << endl;
-                        adminUserChoice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
+                        cout << string(56, '-') << " Manage Users " << string(57, '-') << "\n";
+                        cout << "1. Add Users\n2. View Users\n3. Edit Users\n4. Remove Users\n5. Back to Admin Menu\n"
+                             << string(50, '-') << endl;
+                        adminUserChoice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
                         switch (adminUserChoice)
                         {
                         case 1:
-                            // guestManager.();
+                            guestManager.adminAddGuest();
                             break;
                         case 2:
                             guestManager.viewAllUsers();
                             break;
                         case 3:
-                            // guestManager.editGuestInfo(bookingManager.getBookingsList());
+                            guestManager.adminEditGuestInfo(bookingManager.getBookingsList(), loggedInGuest);
                             break;
                         case 4:
                             guestManager.deleteGuest();
@@ -1325,9 +2000,10 @@ int main()
                     int adminRoomChoice;
                     do
                     {
-                        cout << string(50, '-') << " Manage Rooms " << string(50, '-') << "\n";
-                        cout << "1. Add Room\n2. View Rooms\n3. Update Room\n4. Remove Room\n5. Back to Admin Menu" << endl;
-                        adminRoomChoice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
+                        cout << string(56, '-') << " Manage Rooms " << string(56, '-') << "\n";
+                        cout << "1. Add Room\n2. View Rooms\n3. Edit Room\n4. Remove Room\n5. Back to Admin Menu\n"
+                             << string(50, '-') << "\n";
+                        adminRoomChoice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
                         switch (adminRoomChoice)
                         {
                         case 1:
@@ -1337,7 +2013,7 @@ int main()
                             RoomManager::get().displayRooms();
                             break;
                         case 3:
-                            RoomManager::get().updateRoom();
+                            RoomManager::get().editRoom();
                             break;
                         case 4:
                             RoomManager::get().deleteRoom();
@@ -1352,9 +2028,10 @@ int main()
                     int adminBookingChoice;
                     do
                     {
-                        cout << string(50, '-') << " Manage Bookings " << string(50, '-') << "\n";
-                        cout << "1. Add Booking\n2. View Bookings\n3. Edit Booking\n4. Remove Booking\n5. Back to Admin Menu" << endl;
-                        adminBookingChoice = stoi(InputValidator::get().getValidatedInput("Enter your choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
+                        cout << string(54, '-') << " Manage Bookings " << string(54, '-') << "\n";
+                        cout << "1. Add Booking\n2. View Bookings\n3. Edit Booking\n4. Remove Booking\n5. Back to Admin Menu\n"
+                             << string(50, '-') << "\n";
+                        adminBookingChoice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 5]: ", "^[1-5]$", "Invalid choice. Please enter [1 - 5]."));
                         switch (adminBookingChoice)
                         {
                         case 1:
@@ -1367,13 +2044,39 @@ int main()
                             bookingManager.editBooking();
                             break;
                         case 4:
-                            // bookingManager.deleteBooking();
+                            bookingManager.deleteBooking();
                             break;
                         case 5:
                             cout << "Returning to Admin Menu..." << endl;
                             break;
                         }
                     } while (adminBookingChoice != 5);
+                    break;
+                case 4:
+                    cout << "Logging Out..." << endl;
+                    break;
+                }
+            } while (choice != 4);
+        }
+        else
+        {
+            int choice;
+            do
+            {
+                cout << string(57, '-') << " Guest Menu " << string(57, '-') << "\n";
+                cout << "1. Make a Booking\n2. View My Bookings\n3. Edit Account Details\n4. Logout\n"
+                     << string(50, '-') << endl;
+                choice = stoi(InputValidator::get().getValidatedInput("Enter choice [1 - 4]: ", "^[1-4]$", "Invalid choice. Please enter [1 - 4]."));
+                switch (choice)
+                {
+                case 1:
+                    bookingManager.addBookingGuest(loggedInGuest);
+                    break;
+                case 2:
+                    bookingManager.displayBookingsGuest(loggedInGuest);
+                    break;
+                case 3:
+                    guestManager.editGuestInfo(bookingManager.getBookingsList(), loggedInGuest);
                     break;
                 case 4:
                     cout << "Logging Out..." << endl;
